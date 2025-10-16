@@ -23,7 +23,7 @@ Anticipate absenteeism trends to improve operational planning, reduce costs, and
 
 
 
-## Absenteeism at Work - Project Organization
+## Project Organization
 
 ```
 ├── LICENSE
@@ -38,30 +38,21 @@ Anticipate absenteeism trends to improve operational planning, reduce costs, and
 │   └── raw
 │       ├── work_absenteeism_raw.csv
 │       └── work_absenteeism_raw.csv.dvc
-│
 ├── docs
 │   ├── Phase1.pdf
 │   └── Phase2.pdf
-│
 ├── models
-│
 ├── notebooks
-│   └── Phase1
+│   └── phase1
 │       ├── data_preparation.ipynb
 │       ├── eda_fe.ipynb
 │       └── model_train.ipynb
-│
 ├── pyproject.toml
-│
 ├── references
-│
 ├── reports
 │   └── figures
-│
 ├── requirements.txt
-│
 ├── setup.cfg
-│
 └── absenteeism_at_work
     ├── __init__.py
     ├── config.py
@@ -74,7 +65,11 @@ Anticipate absenteeism trends to improve operational planning, reduce costs, and
     ├── plots.py
     ├── preprocess_data.py
     └── visualize_data.py
-
+└── .dvc/                           <--- DVC configuration directory (hidden)
+    ├── config
+    ├── plots/
+    ├── tmp/
+    └── ...                         # Other internal DVC files
 ```
 
 --------
