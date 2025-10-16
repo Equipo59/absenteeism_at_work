@@ -1,0 +1,29 @@
+# Data & Computation
+numpy
+pandas
+scipy
+
+# Visualization
+matplotlib
+seaborn
+
+# Machine Learning
+scikit-learn
+
+# Experiment Tracking / ML Pipelines
+mlflow
+dvc
+
+# Testing
+pytest
+
+# Web API
+fastapi
+
+# Data Quality & Validation
+evidently
+deepchecks
+sdv
+
+# Project Structure
+cookiecutter-data-science
