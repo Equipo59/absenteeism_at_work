@@ -46,8 +46,10 @@ COPY app.py .
 # Ensure static directory exists
 RUN mkdir -p absenteeism_at_work/static
 
-# Create necessary directories
-RUN mkdir -p models data/processed reports/metrics mlruns
+# Copy project files including trained models, data, and MLflow runs
+COPY models/ ./models/
+COPY data/ ./data/
+COPY mlruns/ ./mlruns/
 
 # Expose API port
 EXPOSE 8000

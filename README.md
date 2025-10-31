@@ -129,7 +129,7 @@ dvc repro
 ### Branch Strategy
 
 - **`master`/`main`**: Desarrollo (sin deploy automático)
-- **`web`**: Producción (deploy automático a EC2)
+- **`web`**: Producción (deploy automático a ECS Fargate)
 
 ### Deploy to Production
 
@@ -140,17 +140,36 @@ git merge master
 git push origin web
 ```
 
-El workflow de GitHub Actions se ejecutará automáticamente y desplegará en EC2.
+El workflow de GitHub Actions se ejecutará automáticamente y desplegará a **ECS Fargate** con:
+- ✅ **CloudFormation** para infraestructura
+- ✅ **ECR** para imágenes Docker
+- ✅ **Application Load Balancer** para alta disponibilidad
+- ✅ **Auto-scaling** y health checks
+- ✅ **Logs centralizados** en CloudWatch
 
 ### Troubleshooting
 
-Si encuentras problemas durante el despliegue, consulta la guía de troubleshooting:
-**[.github/DEPLOYMENT_TROUBLESHOOTING.md](.github/DEPLOYMENT_TROUBLESHOOTING.md)**
+**Ver logs de ECS:**
+```bash
+aws logs tail /ecs/production-absenteeism-api --follow --region us-east-1
+```
 
-Problemas comunes:
-- Error de autenticación SSH → Verifica que la clave privada en GitHub Secrets coincida con la clave pública en EC2
-- Problemas con Docker → Revisa los logs con `sudo docker-compose logs`
-- API no responde → Verifica el health check en `/health`
+**Verificar estado del servicio:**
+```bash
+aws ecs describe-services \
+  --cluster production-absenteeism-cluster \
+  --services production-absenteeism-api \
+  --region us-east-1
+```
+
+**Ver outputs de CloudFormation:**
+```bash
+aws cloudformation describe-stacks \
+  --stack-name absenteeism-infrastructure \
+  --query 'Stacks[0].Outputs' \
+  --output table \
+  --region us-east-1
+```
 
 ## Project Structure Based on Cookiecutter Data Science
 

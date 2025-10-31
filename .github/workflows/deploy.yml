@@ -1,29 +1,27 @@
-name: Deploy to AWS EC2
+name: Deploy to AWS ECS
 
 # Deployment solo ocurre cuando se hace push a la rama 'web'
 # master/main = desarrollo (sin deploy automático)
-# web = producción (con deploy automático)
-#
-# Usa AWS Systems Manager (SSM) para deployment sin necesidad de SSH keys
-# Requiere configurar GitHub Secrets:
-# - AWS_ACCESS_KEY_ID
-# - AWS_SECRET_ACCESS_KEY
-# - AWS_ACCOUNT_ID
+# web = producción (deploy automático a ECS Fargate)
 
 on:
   push:
     branches:
       - web
-  workflow_dispatch:  # Allows manual trigger from any branch
+  workflow_dispatch:
 
 env:
   AWS_REGION: us-east-1
-  EC2_INSTANCE_TYPE: t3.micro
-  DOCKER_IMAGE_NAME: absenteeism-api
+  ECR_REPOSITORY: absenteeism-api
+  ECS_SERVICE: production-absenteeism-api
+  ECS_CLUSTER: production-absenteeism-cluster
+  ECS_TASK_DEFINITION: absenteeism-api
+  STACK_NAME: absenteeism-infrastructure
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
 
 jobs:
   deploy:
-    name: Build, Train, and Deploy
+    name: Deploy to ECS
     runs-on: ubuntu-latest
     
     steps:
@@ -38,17 +36,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install --no-cache-dir -r requirements.txt
-          pip install --no-cache-dir -r requirements-api.txt || pip install --no-cache-dir fastapi uvicorn pydantic
-          pip install --no-cache-dir boto3 awscli
+          pip install -r requirements.txt
 
       - name: Preprocess data
-        run: |
-          python -m absenteeism_at_work.preprocess_data
+        run: python -m absenteeism_at_work.preprocess_data
 
       - name: Train model
-        run: |
-          python -m absenteeism_at_work.modeling.train
+        run: python -m absenteeism_at_work.modeling.train
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -57,238 +51,71 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Install Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.6.0"
-
-      - name: Setup infrastructure (Terraform)
-        working-directory: infrastructure/terraform
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          TF_VAR_aws_region: ${{ env.AWS_REGION }}
-          TF_VAR_ec2_instance_type: ${{ env.EC2_INSTANCE_TYPE }}
-          TF_VAR_use_existing_vpc: "true"
+      - name: Create ECR repository if not exists
         run: |
-          terraform init -upgrade
-          # Try to import IAM resources if they already exist but not in state
-          if ! terraform state list 2>/dev/null | grep -q "aws_iam_role.ec2_ssm_role"; then
-            terraform import aws_iam_role.ec2_ssm_role absenteeism-ec2-ssm-role || echo "IAM role doesn't exist yet"
-          fi
-          if ! terraform state list 2>/dev/null | grep -q "aws_iam_role_policy.s3_deployment_access"; then
-            terraform import aws_iam_role_policy.s3_deployment_access "absenteeism-ec2-ssm-role:absenteeism-s3-deployment-access" || echo "IAM role policy doesn't exist yet"
-          fi
-          if ! terraform state list 2>/dev/null | grep -q "aws_iam_instance_profile.ec2_ssm_profile"; then
-            terraform import aws_iam_instance_profile.ec2_ssm_profile absenteeism-ec2-ssm-profile || echo "Instance profile doesn't exist yet"
-          fi
-          terraform plan -out=tfplan
-          terraform apply -auto-approve
-
-      - name: Clean up Docker system
-        run: |
-          docker system prune -af --volumes || true
-          docker builder prune -af || true
-
-      - name: Build Docker image
-        id: build-docker
-        run: |
-          docker build -t ${{ env.DOCKER_IMAGE_NAME }}:latest .
-          docker tag ${{ env.DOCKER_IMAGE_NAME }}:latest ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
-          echo "✅ Docker image built successfully"
-          docker images ${{ env.DOCKER_IMAGE_NAME }} --format "{{.Repository}}:{{.Tag}}" || echo "⚠️ Image listing failed"
+          aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} --region ${{ env.AWS_REGION }} || \
+          aws ecr create-repository --repository-name ${{ env.ECR_REPOSITORY }} --region ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-        continue-on-error: true
 
-      - name: Create ECR repository (if not exists)
-        continue-on-error: true
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          aws ecr create-repository --repository-name ${{ env.DOCKER_IMAGE_NAME }} --region ${{ env.AWS_REGION }} || true
+          docker build -t ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }} .
+          docker tag ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }} ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
+          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
 
-      - name: Push Docker image to ECR
-        if: steps.login-ecr.outcome == 'success' && steps.build-docker.outcome == 'success'
-        continue-on-error: true
+      - name: Create or update CloudFormation stack
         run: |
-          # Verify image exists before tagging
-          if ! docker images ${{ env.DOCKER_IMAGE_NAME }}:latest --format "{{.Repository}}:{{.Tag}}" | grep -q "${{ env.DOCKER_IMAGE_NAME }}:latest"; then
-            echo "❌ Docker image ${{ env.DOCKER_IMAGE_NAME }}:latest not found"
-            echo "Available images:"
-            docker images | head -10
-            exit 1
-          fi
-          docker tag ${{ env.DOCKER_IMAGE_NAME }}:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.DOCKER_IMAGE_NAME }}:latest
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.DOCKER_IMAGE_NAME }}:latest
+          aws cloudformation deploy \
+            --template-file infrastructure/cloudformation/infrastructure.yaml \
+            --stack-name ${{ env.STACK_NAME }} \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --parameter-overrides \
+              EnvironmentName=production \
+              ContainerImage=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest \
+            --region ${{ env.AWS_REGION }}
 
-      - name: Clean up Docker after push
-        if: always()
+      - name: Force new ECS deployment
         run: |
-          docker system prune -af || true
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE }} \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
 
-      - name: Get EC2 instance info
-        id: get-ec2-info
-        working-directory: infrastructure/terraform
+      - name: Wait for service stability
         run: |
-          INSTANCE_IP=$(terraform output -raw instance_ip 2>/dev/null || aws ec2 describe-instances \
-            --filters "Name=tag:Name,Values=absenteeism-api" "Name=instance-state-name,Values=running" \
-            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+          echo "Waiting for service to stabilize..."
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE }} \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Get ALB DNS
+        id: get-alb-dns
+        run: |
+          ALB_DNS=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDNS`].OutputValue' \
             --output text \
             --region ${{ env.AWS_REGION }})
-          
-          INSTANCE_ID=$(terraform output -raw instance_id 2>/dev/null || aws ec2 describe-instances \
-            --filters "Name=tag:Name,Values=absenteeism-api" "Name=instance-state-name,Values=running" \
-            --query 'Reservations[0].Instances[0].InstanceId' \
-            --output text \
-            --region ${{ env.AWS_REGION }})
-          
-          echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
-          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
-          echo "EC2 IP: $INSTANCE_IP"
-          echo "EC2 Instance ID: $INSTANCE_ID"
-          
-          # Wait for SSM agent to be ready
-          echo "Waiting for SSM agent to register..."
-          sleep 30
-
-      - name: Create S3 bucket for deployment
-        id: create-bucket
-        run: |
-          BUCKET_NAME="absenteeism-deployment-${{ github.run_number }}"
-          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
-          
-          # Create bucket or use existing
-          aws s3api create-bucket \
-            --bucket $BUCKET_NAME \
-            --region ${{ env.AWS_REGION }} \
-            || echo "Bucket may already exist"
-          
-          # Tag with lifecycle policy
-          aws s3api put-bucket-tagging \
-            --bucket $BUCKET_NAME \
-            --tagging "TagSet=[{Key=Project,Value=absenteeism},{Key=AutoDelete,Value=true}]"
-
-      - name: Package and upload files to S3
-        run: |
-          echo "Packaging application..."
-          # Use git archive to get versioned files, then add generated files
-          git archive --format=tar --prefix=./ HEAD > deploy.tar
-          
-          # Add generated files to the archive
-          tar --append --file=deploy.tar models/ data/ mlruns/ || echo "Some generated files may not exist"
-          
-          # Compress the archive
-          gzip deploy.tar
-          
-          echo "Checking if tar file was created..."
-          if [ ! -f deploy.tar.gz ]; then
-            echo "❌ Failed to create deploy.tar.gz"
-            exit 1
-          fi
-          
-          echo "Uploading to S3..."
-          aws s3 cp deploy.tar.gz s3://${{ steps.create-bucket.outputs.bucket_name }}/deploy.tar.gz
-
-      - name: Install AWS CLI on EC2 if needed
-        run: |
-          echo "Checking and installing AWS CLI on EC2..."
-          CHECK_CMD_ID=$(aws ssm send-command \
-            --instance-ids "${{ steps.get-ec2-info.outputs.instance_id }}" \
-            --document-name "AWS-RunShellScript" \
-            --parameters "commands=[
-              'if ! command -v aws &> /dev/null; then',
-              '  echo \"Installing AWS CLI v2...\"',
-              '  curl \"https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip\" -o \"awscliv2.zip\"',
-              '  apt-get update && apt-get install -y unzip',
-              '  unzip awscliv2.zip',
-              '  ./aws/install',
-              '  rm -rf aws awscliv2.zip',
-              '  echo \"AWS CLI installed successfully\"',
-              'else',
-              '  echo \"AWS CLI already installed\"',
-              'fi'
-            ]" \
-            --timeout-seconds 300 \
-            --region ${{ env.AWS_REGION }} \
-            --query 'Command.CommandId' \
-            --output text)
-          
-          # Wait for command to complete
-          sleep 5
-          aws ssm wait command-executed --command-id "$CHECK_CMD_ID" --instance-id "${{ steps.get-ec2-info.outputs.instance_id }}" --region ${{ env.AWS_REGION }} || true
-
-      - name: Deploy on EC2 via SSM
-        run: |
-          echo "Deploying application on EC2 via AWS Systems Manager..."
-          
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "${{ steps.get-ec2-info.outputs.instance_id }}" \
-            --document-name "AWS-RunShellScript" \
-            --parameters "commands=[
-              'cd /home/ubuntu',
-              'mkdir -p absenteeism_at_work',
-              'cd absenteeism_at_work',
-              'aws s3 cp s3://${{ steps.create-bucket.outputs.bucket_name }}/deploy.tar.gz .',
-              'tar -xzf deploy.tar.gz || true',
-              'chmod +x scripts/deploy.sh',
-              'export DEPLOYMENT_MODE=ci',
-              './scripts/deploy.sh'
-            ]" \
-            --timeout-seconds 600 \
-            --region ${{ env.AWS_REGION }} \
-            --query 'Command.CommandId' \
-            --output text)
-          
-          echo "Command ID: $COMMAND_ID"
-          echo "Waiting for deployment to complete..."
-          
-          # Poll for command completion
-          for i in {1..30}; do
-            STATUS=$(aws ssm get-command-invocation \
-              --command-id "$COMMAND_ID" \
-              --instance-id "${{ steps.get-ec2-info.outputs.instance_id }}" \
-              --region ${{ env.AWS_REGION }} \
-              --query 'Status' \
-              --output text || echo "Unknown")
-            
-            echo "Attempt $i/30: Status = $STATUS"
-            
-            if [ "$STATUS" == "Success" ]; then
-              echo "✅ Deployment successful!"
-              # Show output
-              aws ssm get-command-invocation \
-                --command-id "$COMMAND_ID" \
-                --instance-id "${{ steps.get-ec2-info.outputs.instance_id }}" \
-                --region ${{ env.AWS_REGION }}
-              break
-            elif [ "$STATUS" == "Failed" ]; then
-              echo "❌ Deployment failed!"
-              aws ssm get-command-invocation \
-                --command-id "$COMMAND_ID" \
-                --instance-id "${{ steps.get-ec2-info.outputs.instance_id }}" \
-                --region ${{ env.AWS_REGION }}
-              exit 1
-            fi
-            
-            sleep 10
-          done
-
-      - name: Clean up S3 bucket
-        if: always()
-        run: |
-          echo "Cleaning up S3 deployment bucket..."
-          aws s3 rm s3://${{ steps.create-bucket.outputs.bucket_name }}/deploy.tar.gz || true
-          aws s3api delete-bucket --bucket ${{ steps.create-bucket.outputs.bucket_name }} || true
+          echo "alb_dns=$ALB_DNS" >> $GITHUB_OUTPUT
+          echo "Load Balancer DNS: $ALB_DNS"
 
       - name: Health check
         run: |
-          sleep 30
-          INSTANCE_IP="${{ steps.get-ec2-info.outputs.instance_ip }}"
-          curl -f http://$INSTANCE_IP:8000/health || exit 1
+          sleep 10
+          ALB_DNS="${{ steps.get-alb-dns.outputs.alb_dns }}"
+          curl -f http://$ALB_DNS/health || exit 1
 
       - name: Deployment summary
         run: |
           echo "✅ Deployment completed successfully!"
-          echo "🌐 API URL: http://${{ steps.get-ec2-info.outputs.instance_ip }}:8000"
-          echo "📚 Docs: http://${{ steps.get-ec2-info.outputs.instance_ip }}:8000/docs"
+          echo "🌐 API URL: http://${{ steps.get-alb-dns.outputs.alb_dns }}"
+          echo "📚 Docs: http://${{ steps.get-alb-dns.outputs.alb_dns }}/docs"
