@@ -1,39 +1,47 @@
-# Multi-stage Dockerfile for Absenteeism Prediction API
+# Multi-stage Dockerfile for Absenteeism Prediction API (Optimized)
 
 # Stage 1: Build stage
 FROM python:3.10-slim as builder
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Install only essential build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    && rm -rf /var/lib/apt/lists/*
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Copy only API requirements
+COPY requirements-api.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --user -r requirements.txt
-
-# Install optional ML dependencies if needed
-RUN pip install --no-cache-dir --user lightgbm catboost || true
+# Install Python dependencies without cache
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --user -r requirements-api.txt
 
 # Stage 2: Runtime stage
 FROM python:3.10-slim
 
 WORKDIR /app
 
+# Install only runtime dependencies (no build tools needed)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean \
+    && apt-get autoremove -y
+
 # Copy installed packages from builder
 COPY --from=builder /root/.local /root/.local
 
 # Make sure scripts in .local are usable
 ENV PATH=/root/.local/bin:$PATH
+ENV PYTHONUNBUFFERED=1
 
-# Copy application code
+# Copy only necessary application code
 COPY absenteeism_at_work/ ./absenteeism_at_work/
 COPY app.py .
-COPY pyproject.toml .
 
 # Ensure static directory exists
 RUN mkdir -p absenteeism_at_work/static
@@ -44,10 +52,9 @@ RUN mkdir -p models data/processed reports/metrics mlruns
 # Expose API port
 EXPOSE 8000
 
-# Health check
+# Health check (using curl instead of Python requests)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
+    CMD curl -f http://localhost:8000/health || exit 1
 
 # Run the API
 CMD ["python", "app.py"]
-

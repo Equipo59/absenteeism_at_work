@@ -39,9 +39,9 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-api.txt || pip install fastapi uvicorn pydantic
-          pip install boto3 awscli
+          pip install --no-cache-dir -r requirements.txt
+          pip install --no-cache-dir -r requirements-api.txt || pip install --no-cache-dir fastapi uvicorn pydantic
+          pip install --no-cache-dir boto3 awscli
 
       - name: Preprocess data
         run: |
@@ -74,10 +74,20 @@ jobs:
           terraform apply -auto-approve || echo "Infrastructure may already exist, continuing..."
         continue-on-error: true
 
+      - name: Clean up Docker system
+        run: |
+          docker system prune -af --volumes || true
+          docker builder prune -af || true
+
       - name: Build Docker image
         run: |
           docker build -t ${{ env.DOCKER_IMAGE_NAME }}:latest .
           docker tag ${{ env.DOCKER_IMAGE_NAME }}:latest ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Clean up after build
+        if: always()
+        run: |
+          docker system prune -af || true
 
       - name: Login to Amazon ECR
         id: login-ecr
