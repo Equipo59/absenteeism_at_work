@@ -1,0 +1,23 @@
+# Dockerfile for MLflow Tracking Server
+FROM ghcr.io/mlflow/mlflow:latest
+
+# Working directory
+WORKDIR /mlflow
+
+# MLflow runs directory will be mounted as a volume
+RUN mkdir -p /mlflow/mlruns /mlflow/artifacts
+
+# Expose MLflow port
+EXPOSE 5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD wget --quiet --tries=1 --spider http://localhost:5000/health || exit 1
+
+# Run MLflow server
+CMD ["mlflow", "server", \
+     "--host", "0.0.0.0", \
+     "--port", "5000", \
+     "--backend-store-uri", "file:///mlflow/mlruns", \
+     "--default-artifact-root", "file:///mlflow/artifacts"]
+
