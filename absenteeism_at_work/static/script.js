@@ -9,29 +9,37 @@ async function checkHealth() {
         const healthDetails = document.getElementById('health-details');
         
         if (data.status === 'healthy' && data.model_loaded) {
-            statusDot.className = 'status-dot healthy';
-            statusText.textContent = '✅ API Healthy - Model Loaded';
+            statusDot.className = 'w-3 h-3 rounded-full bg-green-500';
+            statusText.textContent = 'API Healthy - Model Loaded';
+            statusText.className = 'text-base font-medium text-green-700 dark:text-green-300';
             healthDetails.innerHTML = `
-                <p><strong>Status:</strong> ${data.status}</p>
-                <p><strong>Model:</strong> ${data.model_loaded ? 'Loaded ✓' : 'Not Loaded ✗'}</p>
+                <div class="mt-2 space-y-1">
+                    <p class="text-sm"><span class="font-medium">Status:</span> ${data.status}</p>
+                    <p class="text-sm"><span class="font-medium">Model:</span> Loaded ✓</p>
+                </div>
             `;
         } else if (data.status === 'healthy') {
-            statusDot.className = 'status-dot';
-            statusText.textContent = '⚠️ API Healthy - Model Not Loaded';
+            statusDot.className = 'w-3 h-3 rounded-full bg-yellow-500 animate-pulse';
+            statusText.textContent = 'API Healthy - Model Not Loaded';
+            statusText.className = 'text-base font-medium text-yellow-700 dark:text-yellow-300';
             healthDetails.innerHTML = `
-                <p><strong>Status:</strong> ${data.status}</p>
-                <p><strong>Model:</strong> Not Loaded ✗</p>
+                <div class="mt-2 space-y-1">
+                    <p class="text-sm"><span class="font-medium">Status:</span> ${data.status}</p>
+                    <p class="text-sm"><span class="font-medium">Model:</span> Not Loaded ✗</p>
+                </div>
             `;
         } else {
-            statusDot.className = 'status-dot error';
-            statusText.textContent = '❌ API Unhealthy';
-            healthDetails.innerHTML = `<p><strong>Status:</strong> ${data.status}</p>`;
+            statusDot.className = 'w-3 h-3 rounded-full bg-red-500';
+            statusText.textContent = 'API Unhealthy';
+            statusText.className = 'text-base font-medium text-red-700 dark:text-red-300';
+            healthDetails.innerHTML = `<p class="text-sm mt-2"><span class="font-medium">Status:</span> ${data.status}</p>`;
         }
     } catch (error) {
         const statusDot = document.getElementById('status-dot');
         const statusText = document.getElementById('status-text');
-        statusDot.className = 'status-dot error';
-        statusText.textContent = '❌ Unable to Connect';
+        statusDot.className = 'w-3 h-3 rounded-full bg-red-500';
+        statusText.textContent = 'Unable to Connect';
+        statusText.className = 'text-base font-medium text-red-700 dark:text-red-300';
     }
 }
 
@@ -65,11 +73,17 @@ async function makePrediction(formData) {
     
     // Show loading state
     submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="spinner"></span> Predicting...';
+    submitBtn.innerHTML = `
+        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        Predicting...
+    `;
     
     // Hide previous results/errors
-    document.getElementById('results-section').style.display = 'none';
-    document.getElementById('error-section').style.display = 'none';
+    document.getElementById('results-section').classList.add('hidden');
+    document.getElementById('error-section').classList.add('hidden');
     
     try {
         const response = await fetch('/predict', {
@@ -90,16 +104,16 @@ async function makePrediction(formData) {
         // Show results
         const resultDiv = document.getElementById('prediction-result');
         resultDiv.innerHTML = `
-            <div class="prediction-main">
-                <div style="font-size: 3rem; margin-bottom: 10px;">${data.predicted_absenteeism_hours.toFixed(2)}</div>
-                <div style="font-size: 1.2rem; opacity: 0.9;">hours</div>
+            <div class="mb-4">
+                <div class="text-5xl font-bold text-primary mb-2">${data.predicted_absenteeism_hours.toFixed(2)}</div>
+                <div class="text-xl text-gray-600 dark:text-gray-400">hours</div>
             </div>
-            <div class="prediction-details">
-                <p><strong>Model Version:</strong> ${data.model_version || 'N/A'}</p>
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+                <p><span class="font-medium">Model Version:</span> ${data.model_version || 'N/A'}</p>
             </div>
         `;
         
-        document.getElementById('results-section').style.display = 'block';
+        document.getElementById('results-section').classList.remove('hidden');
         
         // Scroll to results
         document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -108,7 +122,7 @@ async function makePrediction(formData) {
         // Show error
         document.getElementById('error-message').textContent = 
             `Error: ${error.message || 'An unexpected error occurred'}`;
-        document.getElementById('error-section').style.display = 'block';
+        document.getElementById('error-section').classList.remove('hidden');
         
         // Scroll to error
         document.getElementById('error-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -156,3 +170,18 @@ document.getElementById('fill-example').addEventListener('click', fillExample);
 checkHealth();
 setInterval(checkHealth, 30000);
 
+// Helper function to get current host (for MLflow link)
+function getMLflowUrl() {
+    const host = window.location.hostname;
+    const protocol = window.location.protocol;
+    const port = window.location.port ? `:5000` : '';
+    return `${protocol}//${host}${port.replace(window.location.port, '5000')}`;
+}
+
+// Update MLflow link dynamically
+document.addEventListener('DOMContentLoaded', function() {
+    const mlflowLink = document.getElementById('mlflow-link');
+    if (mlflowLink) {
+        mlflowLink.href = getMLflowUrl();
+    }
+});

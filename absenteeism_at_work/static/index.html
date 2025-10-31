@@ -1,240 +1,274 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Absenteeism Prediction - API</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Absence Predictor</title>
+    <link href="data:image/x-icon;base64," rel="icon" type="image/x-icon"/>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link crossorigin="" href="https://fonts.gstatic.com/" rel="preconnect"/>
+    <link as="style" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B700%3B900" onload="this.rel='stylesheet'" rel="stylesheet"/>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1173d4",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
 </head>
-<body>
-    <div class="container">
-        <header>
-            <h1>🏥 Absenteeism Prediction API</h1>
-            <p class="subtitle">Predict employee absenteeism hours</p>
-        </header>
+<body class="bg-background-light dark:bg-background-dark font-display text-gray-800 dark:text-gray-200">
+<div class="relative flex min-h-screen w-full flex-col group/design-root overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<header class="flex items-center justify-between whitespace-nowrap border-b border-gray-200 dark:border-gray-700 px-10 py-4">
+<div class="flex items-center gap-4 text-gray-900 dark:text-white">
+<div class="text-primary h-6 w-6">
+<svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path d="M6 6H42L36 24L42 42H6L12 24L6 6Z" fill="currentColor"></path>
+</svg>
+</div>
+<h2 class="text-xl font-bold tracking-tight">Absence Predictor</h2>
+</div>
+<nav class="flex items-center gap-8">
+<a class="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors" href="#prediction-form">Predict</a>
+<a class="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors" href="/docs" target="_blank">API Docs</a>
+<a class="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors" href="#" id="mlflow-link">MLflow</a>
+</nav>
+</header>
+<main class="flex-1 px-4 sm:px-6 lg:px-8 py-8">
+<div class="mx-auto max-w-7xl">
+<div class="mb-8">
+<h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Absence Prediction</h1>
+<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Predicting employee absences to optimize workforce management.</p>
+</div>
 
-        <!-- Health Status -->
-        <section class="health-section">
-            <div id="health-status" class="health-card">
-                <div class="health-indicator">
-                    <span class="status-dot" id="status-dot"></span>
-                    <span id="status-text">Checking...</span>
-                </div>
-                <div id="health-details" class="health-details"></div>
-            </div>
-        </section>
+<!-- Health Status Card -->
+<div class="mb-8">
+<div id="health-status" class="flex flex-col gap-2 rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+<div class="flex items-center gap-3">
+<span id="status-dot" class="w-3 h-3 rounded-full bg-yellow-500 animate-pulse"></span>
+<span id="status-text" class="text-base font-medium text-gray-600 dark:text-gray-300">Checking...</span>
+</div>
+<div id="health-details" class="text-sm text-gray-500 dark:text-gray-400 mt-2"></div>
+</div>
+</div>
 
-        <!-- Prediction Form -->
-        <section class="form-section">
-            <div class="form-card">
-                <h2>📊 Make a Prediction</h2>
-                <form id="prediction-form">
-                    <div class="form-grid">
-                        <!-- Reason for Absence -->
-                        <div class="form-group">
-                            <label for="reason_for_absence">Reason for Absence *</label>
-                            <select id="reason_for_absence" name="reason_for_absence" required>
-                                <option value="">Select...</option>
-                                <option value="0">Unknown</option>
-                                <option value="1">Infectious and parasitic diseases</option>
-                                <option value="2">Neoplasms</option>
-                                <option value="3">Blood and immune disorders</option>
-                                <option value="4">Endocrine disorders</option>
-                                <option value="5">Mental disorders</option>
-                                <option value="9">Circulatory system diseases</option>
-                                <option value="10">Respiratory system diseases</option>
-                                <option value="23">Medical consultation</option>
-                                <option value="26">Unjustified absence</option>
-                                <option value="28">Dental consultation</option>
-                            </select>
-                        </div>
+<!-- Prediction Form -->
+<div class="mt-8">
+<h2 class="text-2xl font-bold tracking-tight text-gray-900 dark:text-white mb-6">Make a Prediction</h2>
+<form id="prediction-form" class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+<div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+<!-- Reason for Absence -->
+<div class="flex flex-col">
+<label for="reason_for_absence" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Reason for Absence *</label>
+<select id="reason_for_absence" name="reason_for_absence" required class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 focus:border-primary focus:ring-2 focus:ring-primary">
+<option value="">Select...</option>
+<option value="0">Unknown</option>
+<option value="1">Infectious and parasitic diseases</option>
+<option value="2">Neoplasms</option>
+<option value="3">Blood and immune disorders</option>
+<option value="4">Endocrine disorders</option>
+<option value="5">Mental disorders</option>
+<option value="9">Circulatory system diseases</option>
+<option value="10">Respiratory system diseases</option>
+<option value="23">Medical consultation</option>
+<option value="26">Unjustified absence</option>
+<option value="28">Dental consultation</option>
+</select>
+</div>
 
-                        <!-- Month of Absence -->
-                        <div class="form-group">
-                            <label for="month_of_absence">Month of Absence *</label>
-                            <select id="month_of_absence" name="month_of_absence" required>
-                                <option value="">Select...</option>
-                                <option value="0">Unknown</option>
-                                <option value="1">January</option>
-                                <option value="2">February</option>
-                                <option value="3">March</option>
-                                <option value="4">April</option>
-                                <option value="5">May</option>
-                                <option value="6">June</option>
-                                <option value="7">July</option>
-                                <option value="8">August</option>
-                                <option value="9">September</option>
-                                <option value="10">October</option>
-                                <option value="11">November</option>
-                                <option value="12">December</option>
-                            </select>
-                        </div>
+<!-- Month of Absence -->
+<div class="flex flex-col">
+<label for="month_of_absence" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Month of Absence *</label>
+<select id="month_of_absence" name="month_of_absence" required class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 focus:border-primary focus:ring-2 focus:ring-primary">
+<option value="">Select...</option>
+<option value="0">Unknown</option>
+<option value="1">January</option>
+<option value="2">February</option>
+<option value="3">March</option>
+<option value="4">April</option>
+<option value="5">May</option>
+<option value="6">June</option>
+<option value="7">July</option>
+<option value="8">August</option>
+<option value="9">September</option>
+<option value="10">October</option>
+<option value="11">November</option>
+<option value="12">December</option>
+</select>
+</div>
 
-                        <!-- Day of the Week -->
-                        <div class="form-group">
-                            <label for="day_of_the_week">Day of the Week *</label>
-                            <select id="day_of_the_week" name="day_of_the_week" required>
-                                <option value="">Select...</option>
-                                <option value="2">Monday</option>
-                                <option value="3">Tuesday</option>
-                                <option value="4">Wednesday</option>
-                                <option value="5">Thursday</option>
-                                <option value="6">Friday</option>
-                            </select>
-                        </div>
+<!-- Day of the Week -->
+<div class="flex flex-col">
+<label for="day_of_the_week" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Day of the Week *</label>
+<select id="day_of_the_week" name="day_of_the_week" required class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 focus:border-primary focus:ring-2 focus:ring-primary">
+<option value="">Select...</option>
+<option value="2">Monday</option>
+<option value="3">Tuesday</option>
+<option value="4">Wednesday</option>
+<option value="5">Thursday</option>
+<option value="6">Friday</option>
+</select>
+</div>
 
-                        <!-- Seasons -->
-                        <div class="form-group">
-                            <label for="seasons">Season *</label>
-                            <select id="seasons" name="seasons" required>
-                                <option value="">Select...</option>
-                                <option value="1">Winter</option>
-                                <option value="2">Spring</option>
-                                <option value="3">Summer</option>
-                                <option value="4">Fall</option>
-                            </select>
-                        </div>
+<!-- Seasons -->
+<div class="flex flex-col">
+<label for="seasons" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Season *</label>
+<select id="seasons" name="seasons" required class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 focus:border-primary focus:ring-2 focus:ring-primary">
+<option value="">Select...</option>
+<option value="1">Winter</option>
+<option value="2">Spring</option>
+<option value="3">Summer</option>
+<option value="4">Fall</option>
+</select>
+</div>
 
-                        <!-- Transportation Expense -->
-                        <div class="form-group">
-                            <label for="transportation_expense">Transportation Expense *</label>
-                            <input type="number" id="transportation_expense" name="transportation_expense" min="0" step="1" required>
-                        </div>
+<!-- Transportation Expense -->
+<div class="flex flex-col">
+<label for="transportation_expense" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Transportation Expense *</label>
+<input type="number" id="transportation_expense" name="transportation_expense" min="0" step="1" required class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 focus:border-primary focus:ring-2 focus:ring-primary">
+</div>
 
-                        <!-- Distance from Residence to Work -->
-                        <div class="form-group">
-                            <label for="distance_from_residence_to_work">Distance from Residence to Work (km) *</label>
-                            <input type="number" id="distance_from_residence_to_work" name="distance_from_residence_to_work" min="0" step="1" required>
-                        </div>
+<!-- Distance from Residence to Work -->
+<div class="flex flex-col">
+<label for="distance_from_residence_to_work" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Distance from Residence to Work (km) *</label>
+<input type="number" id="distance_from_residence_to_work" name="distance_from_residence_to_work" min="0" step="1" required class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 focus:border-primary focus:ring-2 focus:ring-primary">
+</div>
 
-                        <!-- Service Time -->
-                        <div class="form-group">
-                            <label for="service_time">Service Time (years) *</label>
-                            <input type="number" id="service_time" name="service_time" min="0" step="0.1" required>
-                        </div>
+<!-- Service Time -->
+<div class="flex flex-col">
+<label for="service_time" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Service Time (years) *</label>
+<input type="number" id="service_time" name="service_time" min="0" step="0.1" required class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 focus:border-primary focus:ring-2 focus:ring-primary">
+</div>
 
-                        <!-- Age -->
-                        <div class="form-group">
-                            <label for="age">Age *</label>
-                            <input type="number" id="age" name="age" min="0" max="100" step="1" required>
-                        </div>
+<!-- Age -->
+<div class="flex flex-col">
+<label for="age" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Age *</label>
+<input type="number" id="age" name="age" min="0" max="100" step="1" required class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 focus:border-primary focus:ring-2 focus:ring-primary">
+</div>
 
-                        <!-- Work Load Average per Day -->
-                        <div class="form-group">
-                            <label for="work_load_average_per_day">Work Load Average/day *</label>
-                            <input type="number" id="work_load_average_per_day" name="work_load_average_per_day" min="0" step="1" required>
-                        </div>
+<!-- Work Load Average per Day -->
+<div class="flex flex-col">
+<label for="work_load_average_per_day" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Work Load Average/day *</label>
+<input type="number" id="work_load_average_per_day" name="work_load_average_per_day" min="0" step="1" required class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 focus:border-primary focus:ring-2 focus:ring-primary">
+</div>
 
-                        <!-- Hit Target -->
-                        <div class="form-group">
-                            <label for="hit_target">Hit Target (%) *</label>
-                            <input type="number" id="hit_target" name="hit_target" min="0" max="100" step="1" required>
-                        </div>
+<!-- Hit Target -->
+<div class="flex flex-col">
+<label for="hit_target" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Hit Target (%) *</label>
+<input type="number" id="hit_target" name="hit_target" min="0" max="100" step="1" required class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 focus:border-primary focus:ring-2 focus:ring-primary">
+</div>
 
-                        <!-- Disciplinary Failure -->
-                        <div class="form-group">
-                            <label for="disciplinary_failure">Disciplinary Failure *</label>
-                            <select id="disciplinary_failure" name="disciplinary_failure" required>
-                                <option value="">Select...</option>
-                                <option value="0">No</option>
-                                <option value="1">Yes</option>
-                            </select>
-                        </div>
+<!-- Disciplinary Failure -->
+<div class="flex flex-col">
+<label for="disciplinary_failure" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Disciplinary Failure *</label>
+<select id="disciplinary_failure" name="disciplinary_failure" required class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 focus:border-primary focus:ring-2 focus:ring-primary">
+<option value="">Select...</option>
+<option value="0">No</option>
+<option value="1">Yes</option>
+</select>
+</div>
 
-                        <!-- Education -->
-                        <div class="form-group">
-                            <label for="education">Education Level *</label>
-                            <select id="education" name="education" required>
-                                <option value="">Select...</option>
-                                <option value="1">High School</option>
-                                <option value="2">Graduate</option>
-                                <option value="3">Postgraduate</option>
-                                <option value="4">Master and Doctor</option>
-                            </select>
-                        </div>
+<!-- Education -->
+<div class="flex flex-col">
+<label for="education" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Education Level *</label>
+<select id="education" name="education" required class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 focus:border-primary focus:ring-2 focus:ring-primary">
+<option value="">Select...</option>
+<option value="1">High School</option>
+<option value="2">Graduate</option>
+<option value="3">Postgraduate</option>
+<option value="4">Master and Doctor</option>
+</select>
+</div>
 
-                        <!-- Son -->
-                        <div class="form-group">
-                            <label for="son">Number of Sons *</label>
-                            <input type="number" id="son" name="son" min="0" step="1" required>
-                        </div>
+<!-- Son -->
+<div class="flex flex-col">
+<label for="son" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Number of Sons *</label>
+<input type="number" id="son" name="son" min="0" step="1" required class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 focus:border-primary focus:ring-2 focus:ring-primary">
+</div>
 
-                        <!-- Social Drinker -->
-                        <div class="form-group">
-                            <label for="social_drinker">Social Drinker *</label>
-                            <select id="social_drinker" name="social_drinker" required>
-                                <option value="">Select...</option>
-                                <option value="0">No</option>
-                                <option value="1">Yes</option>
-                            </select>
-                        </div>
+<!-- Social Drinker -->
+<div class="flex flex-col">
+<label for="social_drinker" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Social Drinker *</label>
+<select id="social_drinker" name="social_drinker" required class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 focus:border-primary focus:ring-2 focus:ring-primary">
+<option value="">Select...</option>
+<option value="0">No</option>
+<option value="1">Yes</option>
+</select>
+</div>
 
-                        <!-- Social Smoker -->
-                        <div class="form-group">
-                            <label for="social_smoker">Social Smoker *</label>
-                            <select id="social_smoker" name="social_smoker" required>
-                                <option value="">Select...</option>
-                                <option value="0">No</option>
-                                <option value="1">Yes</option>
-                            </select>
-                        </div>
+<!-- Social Smoker -->
+<div class="flex flex-col">
+<label for="social_smoker" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Social Smoker *</label>
+<select id="social_smoker" name="social_smoker" required class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 focus:border-primary focus:ring-2 focus:ring-primary">
+<option value="">Select...</option>
+<option value="0">No</option>
+<option value="1">Yes</option>
+</select>
+</div>
 
-                        <!-- Pet -->
-                        <div class="form-group">
-                            <label for="pet">Number of Pets *</label>
-                            <input type="number" id="pet" name="pet" min="0" step="1" required>
-                        </div>
+<!-- Pet -->
+<div class="flex flex-col">
+<label for="pet" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Number of Pets *</label>
+<input type="number" id="pet" name="pet" min="0" step="1" required class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 focus:border-primary focus:ring-2 focus:ring-primary">
+</div>
 
-                        <!-- Weight -->
-                        <div class="form-group">
-                            <label for="weight">Weight (kg) *</label>
-                            <input type="number" id="weight" name="weight" min="0" step="0.1" required>
-                        </div>
+<!-- Weight -->
+<div class="flex flex-col">
+<label for="weight" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Weight (kg) *</label>
+<input type="number" id="weight" name="weight" min="0" step="0.1" required class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 focus:border-primary focus:ring-2 focus:ring-primary">
+</div>
 
-                        <!-- Height -->
-                        <div class="form-group">
-                            <label for="height">Height (cm) *</label>
-                            <input type="number" id="height" name="height" min="0" step="1" required>
-                        </div>
+<!-- Height -->
+<div class="flex flex-col">
+<label for="height" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Height (cm) *</label>
+<input type="number" id="height" name="height" min="0" step="1" required class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 focus:border-primary focus:ring-2 focus:ring-primary">
+</div>
 
-                        <!-- Body Mass Index -->
-                        <div class="form-group">
-                            <label for="body_mass_index">Body Mass Index *</label>
-                            <input type="number" id="body_mass_index" name="body_mass_index" min="0" step="0.1" required>
-                        </div>
-                    </div>
+<!-- Body Mass Index -->
+<div class="flex flex-col">
+<label for="body_mass_index" class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Body Mass Index *</label>
+<input type="number" id="body_mass_index" name="body_mass_index" min="0" step="0.1" required class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-200 focus:border-primary focus:ring-2 focus:ring-primary">
+</div>
+</div>
 
-                    <div class="form-actions">
-                        <button type="button" id="fill-example" class="btn btn-secondary">Fill Example</button>
-                        <button type="submit" id="submit-btn" class="btn btn-primary">Predict Absenteeism</button>
-                    </div>
-                </form>
-            </div>
-        </section>
+<div class="flex gap-4 mt-6 justify-end">
+<button type="button" id="fill-example" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">Fill Example</button>
+<button type="submit" id="submit-btn" class="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Predict Absenteeism</button>
+</div>
+</form>
+</div>
 
-        <!-- Results -->
-        <section class="results-section" id="results-section" style="display: none;">
-            <div class="results-card">
-                <h2>📈 Prediction Result</h2>
-                <div id="prediction-result"></div>
-            </div>
-        </section>
+<!-- Results Section -->
+<div id="results-section" class="mt-8 hidden">
+<div class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+<h2 class="text-2xl font-bold tracking-tight text-gray-900 dark:text-white mb-4">Prediction Result</h2>
+<div id="prediction-result" class="text-center"></div>
+</div>
+</div>
 
-        <!-- Error -->
-        <section class="error-section" id="error-section" style="display: none;">
-            <div class="error-card">
-                <h2>❌ Error</h2>
-                <div id="error-message"></div>
-            </div>
-        </section>
-    </div>
+<!-- Error Section -->
+<div id="error-section" class="mt-8 hidden">
+<div class="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-6">
+<h2 class="text-xl font-bold text-red-900 dark:text-red-100 mb-2">Error</h2>
+<div id="error-message" class="text-red-700 dark:text-red-300"></div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
 
-    <footer>
-        <p>Absenteeism Prediction API v1.0</p>
-        <p><a href="/docs" target="_blank">API Documentation</a> | <a href="/health" target="_blank">Health Check</a></p>
-    </footer>
-
-    <script src="/static/script.js"></script>
+<script src="/static/script.js"></script>
 </body>
 </html>
-

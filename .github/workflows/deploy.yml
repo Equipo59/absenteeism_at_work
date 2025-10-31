@@ -1,12 +1,15 @@
 name: Deploy to AWS EC2
 
-# ⚠️ ADVERTENCIA: Este workflow contiene credenciales hardcodeadas
-# IMPORTANTE: Cambiar a GitHub Secrets cuando tengas permisos
-# Las credenciales están expuestas en el código fuente
-
 # Deployment solo ocurre cuando se hace push a la rama 'web'
 # master/main = desarrollo (sin deploy automático)
 # web = producción (con deploy automático)
+#
+# Requiere configurar GitHub Secrets:
+# - AWS_ACCESS_KEY_ID
+# - AWS_SECRET_ACCESS_KEY
+# - AWS_ACCOUNT_ID
+# - EC2_SSH_KEY
+# - EC2_USER
 
 on:
   push:
@@ -18,9 +21,6 @@ env:
   AWS_REGION: us-east-1
   EC2_INSTANCE_TYPE: t3.micro
   DOCKER_IMAGE_NAME: absenteeism-api
-  # ⚠️ TEMPORAL: Hardcoded values - Cambiar a secrets
-  AWS_ACCOUNT_ID: "838032879301"
-  EC2_USER: "ubuntu"
 
 jobs:
   deploy:
@@ -54,9 +54,8 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          # ⚠️ TEMPORAL: Hardcoded credentials - Cambiar a secrets cuando tengas permisos
-          aws-access-key-id: AKIA4GHVG53CSODA5KXA
-          aws-secret-access-key: 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
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Install Terraform
@@ -67,8 +66,8 @@ jobs:
       - name: Setup infrastructure (Terraform)
         working-directory: infrastructure/terraform
         env:
-          AWS_ACCESS_KEY_ID: AKIA4GHVG53CSODA5KXA
-          AWS_SECRET_ACCESS_KEY: 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
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           terraform init
           terraform plan -out=tfplan
@@ -94,9 +93,8 @@ jobs:
         if: steps.login-ecr.outcome == 'success'
         continue-on-error: true
         run: |
-          # ⚠️ TEMPORAL: Hardcoded account ID - Cambiar a secret cuando tengas permisos
-          docker tag ${{ env.DOCKER_IMAGE_NAME }}:latest ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.DOCKER_IMAGE_NAME }}:latest
-          docker push ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.DOCKER_IMAGE_NAME }}:latest
+          docker tag ${{ env.DOCKER_IMAGE_NAME }}:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.DOCKER_IMAGE_NAME }}:latest
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.DOCKER_IMAGE_NAME }}:latest
 
       - name: Get EC2 instance IP
         id: get-ec2-ip
@@ -112,28 +110,18 @@ jobs:
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          # ⚠️ TEMPORAL: Usando archivo del repo - Cambiar a secret cuando tengas permisos
-          if [ -f "absenteeism-key.pem" ]; then
-            cat absenteeism-key.pem > ~/.ssh/id_rsa
-            chmod 600 ~/.ssh/id_rsa
-            echo "✅ SSH key loaded from repository"
-          else
-            echo "❌ absenteeism-key.pem not found in repository"
-            echo "⚠️  Make sure to commit absenteeism-key.pem to the repository"
-            exit 1
-          fi
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ steps.get-ec2-ip.outputs.instance_ip }} >> ~/.ssh/known_hosts || true
 
       - name: Copy files to EC2
         run: |
-          # ⚠️ TEMPORAL: Hardcoded user - Cambiar a secret cuando tengas permisos
           scp -o StrictHostKeyChecking=no -r \
-            . ${{ env.EC2_USER }}@${{ steps.get-ec2-ip.outputs.instance_ip }}:~/absenteeism_at_work/
+            . ${{ secrets.EC2_USER }}@${{ steps.get-ec2-ip.outputs.instance_ip }}:~/absenteeism_at_work/
 
       - name: Deploy on EC2
         run: |
-          # ⚠️ TEMPORAL: Hardcoded user - Cambiar a secret cuando tengas permisos
-          ssh -o StrictHostKeyChecking=no ${{ env.EC2_USER }}@${{ steps.get-ec2-ip.outputs.instance_ip }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ steps.get-ec2-ip.outputs.instance_ip }} << 'EOF'
             cd ~/absenteeism_at_work
             chmod +x scripts/deploy.sh
             ./scripts/deploy.sh
