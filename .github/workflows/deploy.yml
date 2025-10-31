@@ -51,6 +51,11 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Create ECS service-linked role if not exists
+        run: |
+          aws iam get-role --role-name AWSServiceRoleForECS 2>/dev/null || \
+          aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com
+
       - name: Create ECR repository if not exists
         run: |
           aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} --region ${{ env.AWS_REGION }} || \
