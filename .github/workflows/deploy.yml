@@ -80,14 +80,12 @@ jobs:
           docker builder prune -af || true
 
       - name: Build Docker image
+        id: build-docker
         run: |
           docker build -t ${{ env.DOCKER_IMAGE_NAME }}:latest .
           docker tag ${{ env.DOCKER_IMAGE_NAME }}:latest ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
-
-      - name: Clean up after build
-        if: always()
-        run: |
-          docker system prune -af || true
+          echo "✅ Docker image built successfully"
+          docker images ${{ env.DOCKER_IMAGE_NAME }} --format "{{.Repository}}:{{.Tag}}" || echo "⚠️ Image listing failed"
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -100,11 +98,23 @@ jobs:
           aws ecr create-repository --repository-name ${{ env.DOCKER_IMAGE_NAME }} --region ${{ env.AWS_REGION }} || true
 
       - name: Push Docker image to ECR
-        if: steps.login-ecr.outcome == 'success'
+        if: steps.login-ecr.outcome == 'success' && steps.build-docker.outcome == 'success'
         continue-on-error: true
         run: |
+          # Verify image exists before tagging
+          if ! docker images ${{ env.DOCKER_IMAGE_NAME }}:latest --format "{{.Repository}}:{{.Tag}}" | grep -q "${{ env.DOCKER_IMAGE_NAME }}:latest"; then
+            echo "❌ Docker image ${{ env.DOCKER_IMAGE_NAME }}:latest not found"
+            echo "Available images:"
+            docker images | head -10
+            exit 1
+          fi
           docker tag ${{ env.DOCKER_IMAGE_NAME }}:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.DOCKER_IMAGE_NAME }}:latest
           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.DOCKER_IMAGE_NAME }}:latest
+
+      - name: Clean up Docker after push
+        if: always()
+        run: |
+          docker system prune -af || true
 
       - name: Get EC2 instance IP
         id: get-ec2-ip
@@ -120,20 +130,46 @@ jobs:
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 700 ~/.ssh
+          # Write SSH key - preserve newlines from GitHub Secrets
+          # Use printf to handle newlines properly
+          printf '%s\n' "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ steps.get-ec2-ip.outputs.instance_ip }} >> ~/.ssh/known_hosts || true
+          # Verify SSH key format
+          if [ ! -s ~/.ssh/id_rsa ]; then
+            echo "❌ SSH key file is empty"
+            exit 1
+          fi
+          if ! head -1 ~/.ssh/id_rsa | grep -qE "(BEGIN|PRIVATE)"; then
+            echo "❌ SSH key format invalid"
+            echo "First line: $(head -1 ~/.ssh/id_rsa)"
+            echo "Key length: $(wc -l < ~/.ssh/id_rsa) lines"
+            exit 1
+          fi
+          # Add EC2 to known_hosts
+          ssh-keyscan -H ${{ steps.get-ec2-ip.outputs.instance_ip }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          # Test SSH connection with verbose output for debugging
+          echo "Testing SSH connection..."
+          ssh -v -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ steps.get-ec2-ip.outputs.instance_ip }} "echo 'SSH connection test successful'" || {
+            echo "⚠️ SSH test failed"
+            echo "Troubleshooting:"
+            echo "  - Key file size: $(wc -c < ~/.ssh/id_rsa) bytes"
+            echo "  - Key first line: $(head -1 ~/.ssh/id_rsa)"
+            echo "  - Key last line: $(tail -1 ~/.ssh/id_rsa)"
+            exit 1
+          }
 
       - name: Copy files to EC2
         run: |
-          scp -o StrictHostKeyChecking=no -r \
+          scp -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i ~/.ssh/id_rsa -r \
             . ${{ secrets.EC2_USER }}@${{ steps.get-ec2-ip.outputs.instance_ip }}:~/absenteeism_at_work/
 
       - name: Deploy on EC2
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ steps.get-ec2-ip.outputs.instance_ip }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ steps.get-ec2-ip.outputs.instance_ip }} << 'EOF'
             cd ~/absenteeism_at_work
             chmod +x scripts/deploy.sh
+            export DEPLOYMENT_MODE=local
             ./scripts/deploy.sh
           EOF
 
