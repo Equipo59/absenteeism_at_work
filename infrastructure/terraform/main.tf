@@ -288,6 +288,10 @@ resource "aws_iam_role_policy" "s3_deployment_access" {
 resource "aws_iam_instance_profile" "ec2_ssm_profile" {
   name = "absenteeism-ec2-ssm-profile"
   role = aws_iam_role.ec2_ssm_role.name
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # EC2 Instance
