@@ -187,6 +187,34 @@ jobs:
           echo "Uploading to S3..."
           aws s3 cp deploy.tar.gz s3://${{ steps.create-bucket.outputs.bucket_name }}/deploy.tar.gz
 
+      - name: Install AWS CLI on EC2 if needed
+        run: |
+          echo "Checking and installing AWS CLI on EC2..."
+          CHECK_CMD_ID=$(aws ssm send-command \
+            --instance-ids "${{ steps.get-ec2-info.outputs.instance_id }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "commands=[
+              'if ! command -v aws &> /dev/null; then',
+              '  echo \"Installing AWS CLI v2...\"',
+              '  curl \"https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip\" -o \"awscliv2.zip\"',
+              '  apt-get update && apt-get install -y unzip',
+              '  unzip awscliv2.zip',
+              '  ./aws/install',
+              '  rm -rf aws awscliv2.zip',
+              '  echo \"AWS CLI installed successfully\"',
+              'else',
+              '  echo \"AWS CLI already installed\"',
+              'fi'
+            ]" \
+            --timeout-seconds 300 \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Command.CommandId' \
+            --output text)
+          
+          # Wait for command to complete
+          sleep 5
+          aws ssm wait command-executed --command-id "$CHECK_CMD_ID" --instance-id "${{ steps.get-ec2-info.outputs.instance_id }}" --region ${{ env.AWS_REGION }} || true
+
       - name: Deploy on EC2 via SSM
         run: |
           echo "Deploying application on EC2 via AWS Systems Manager..."

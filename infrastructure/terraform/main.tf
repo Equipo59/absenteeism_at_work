@@ -310,6 +310,12 @@ resource "aws_instance" "api" {
               snap install amazon-ssm-agent --classic
               systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent.service
               systemctl start snap.amazon-ssm-agent.amazon-ssm-agent.service
+              # Install AWS CLI v2
+              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+              apt-get install -y unzip
+              unzip awscliv2.zip
+              ./aws/install
+              rm -rf aws awscliv2.zip
               # Install Docker and dependencies
               apt-get install -y docker.io docker-compose git python3 python3-pip curl
               systemctl start docker
