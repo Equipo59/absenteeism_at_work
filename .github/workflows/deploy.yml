@@ -68,10 +68,31 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          TF_VAR_ec2_key_name: "absenteeism-key"
+          TF_VAR_aws_region: ${{ env.AWS_REGION }}
+          TF_VAR_ec2_instance_type: ${{ env.EC2_INSTANCE_TYPE }}
         run: |
           terraform init
-          terraform plan -out=tfplan
-          terraform apply -auto-approve || echo "Infrastructure may already exist, continuing..."
+          # Check if instance exists and has correct key pair
+          if terraform state list 2>/dev/null | grep -q "aws_instance.api"; then
+            INSTANCE_ID=$(terraform state show aws_instance.api 2>/dev/null | grep '^id[[:space:]]*=' | sed 's/.*"\(.*\)".*/\1/' || echo "")
+            if [ -n "$INSTANCE_ID" ] && [ "$INSTANCE_ID" != "null" ]; then
+              CURRENT_KEY=$(aws ec2 describe-instances \
+                --instance-ids "$INSTANCE_ID" \
+                --region ${{ env.AWS_REGION }} \
+                --query 'Reservations[0].Instances[0].KeyName' \
+                --output text 2>/dev/null || echo "None")
+              if [ "$CURRENT_KEY" != "absenteeism-key" ] && [ "$CURRENT_KEY" != "None" ] && [ "$CURRENT_KEY" != "null" ]; then
+                echo "⚠️  Instance has wrong key pair ($CURRENT_KEY), will recreate..."
+                terraform taint aws_instance.api || true
+              elif [ "$CURRENT_KEY" == "None" ] || [ -z "$CURRENT_KEY" ]; then
+                echo "⚠️  Instance has no key pair, will recreate..."
+                terraform taint aws_instance.api || true
+              fi
+            fi
+          fi
+          terraform plan -out=tfplan -var="ec2_key_name=absenteeism-key" -var="aws_region=${{ env.AWS_REGION }}" -var="ec2_instance_type=${{ env.EC2_INSTANCE_TYPE }}"
+          terraform apply -auto-approve -var="ec2_key_name=absenteeism-key" -var="aws_region=${{ env.AWS_REGION }}" -var="ec2_instance_type=${{ env.EC2_INSTANCE_TYPE }}" || echo "Infrastructure may already exist, continuing..."
         continue-on-error: true
 
       - name: Clean up Docker system
