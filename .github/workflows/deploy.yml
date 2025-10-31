@@ -162,18 +162,17 @@ jobs:
       - name: Package and upload files to S3
         run: |
           echo "Packaging application..."
-          tar -czf deploy.tar.gz \
-            --exclude='.git' \
-            --exclude='venv' \
-            --exclude='__pycache__' \
-            --exclude='*.pyc' \
-            --exclude='mlruns' \
-            --exclude='.pytest_cache' \
-            --exclude='.mypy_cache' \
-            --exclude='node_modules' \
-            --exclude='.terraform' \
-            --exclude='tfplan*' \
-            .
+          # Use git archive to avoid file change issues
+          git archive --format=tar.gz \
+            --output=deploy.tar.gz \
+            --prefix=./ \
+            HEAD
+          
+          echo "Checking if tar file was created..."
+          if [ ! -f deploy.tar.gz ]; then
+            echo "❌ Failed to create deploy.tar.gz"
+            exit 1
+          fi
           
           echo "Uploading to S3..."
           aws s3 cp deploy.tar.gz s3://${{ steps.create-bucket.outputs.bucket_name }}/deploy.tar.gz
