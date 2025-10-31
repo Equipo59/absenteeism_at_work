@@ -25,52 +25,140 @@ Anticipate absenteeism trends to improve operational planning, reduce costs, and
 
 ## Project Organization
 
+This project follows the [Cookiecutter Data Science](https://drivendata.github.io/cookiecutter-data-science/) structure for organized and reproducible machine learning projects.
+
 ```
 ├── LICENSE
-├── Makefile
+├── Makefile                          # Standard commands for project operations
 ├── README.md
+├── pyproject.toml                    # Project metadata and build configuration
+├── requirements.txt                  # Python dependencies
+├── setup.cfg                         # Additional setup configuration
+├── .dvcignore                        # Files to ignore in DVC tracking
+├── dvc.yaml                          # DVC pipeline definition
 ├── data
-│   ├── external
-│   ├── interim
-│   ├── processed
-│   │   ├── work_absenteeism_processed.csv
-│   │   └── work_absenteeism_processed.csv.dvc
-│   └── raw
-│       ├── work_absenteeism_raw.csv
-│       └── work_absenteeism_raw.csv.dvc
+│   ├── external                      # External data sources
+│   ├── interim                       # Intermediate data files
+│   ├── processed                     # Final, processed datasets
+│   │   └── work_absenteeism_processed.csv
+│   └── raw                           # Original, immutable data
+│       └── work_absenteeism_raw.csv
 ├── docs
 │   ├── Phase1.pdf
 │   └── Phase2.pdf
-├── models
-├── notebooks
-│   └── phase1
+├── models                            # Trained and serialized models
+├── notebooks                         # Jupyter notebooks for exploration
+│   └── Phase1
 │       ├── data_preparation.ipynb
 │       ├── eda_fe.ipynb
 │       └── model_train.ipynb
-├── pyproject.toml
-├── references
+├── references                        # Data dictionaries, papers, manuals
 ├── reports
-│   └── figures
-├── requirements.txt
-├── setup.cfg
-└── absenteeism_at_work
+│   ├── figures                       # Generated graphics and figures
+│   └── metrics                       # Model evaluation metrics
+├── .dvc/                             # DVC configuration (hidden)
+│   ├── config
+│   ├── plots/
+│   └── tmp/
+└── absenteeism_at_work               # Source code package
     ├── __init__.py
-    ├── config.py
-    ├── dataset.py
-    ├── features.py
+    ├── config.py                    # Configuration and constants
+    ├── dataset.py                   # Data loading and cleaning
+    ├── features.py                  # Feature engineering pipeline
     ├── modeling
-    │   ├── __init__.py 
-    │   ├── predict.py
-    │   └── train.py
-    ├── plots.py
-    ├── preprocess_data.py
-    └── visualize_data.py
-└── .dvc/                           <--- DVC configuration directory (hidden)
-    ├── config
-    ├── plots/
-    ├── tmp/
-    └── ...                         # Other internal DVC files
+    │   ├── __init__.py
+    │   ├── predict.py              # Model prediction interface
+    │   └── train.py                # Model training pipeline
+    ├── plots.py                     # Visualization functions
+    ├── preprocess_data.py           # Data preprocessing entry point
+    └── visualize_data.py            # Visualization entry point
 ```
+
+## Quick Start
+
+### Installation
+
+```bash
+# Install the package in development mode
+make install
+
+# Or with all optional dependencies
+make install-dev
+```
+
+### Using Make Commands
+
+```bash
+# See all available commands
+make help
+
+# Preprocess raw data
+make preprocess
+
+# Train the model
+make train
+
+# Generate visualizations
+make visualize
+
+# Run full pipeline
+make all
+
+# Run tests
+make test
+
+# Format code
+make format
+```
+
+### Using DVC
+
+```bash
+# Pull data versions
+make data-pull
+
+# Check data status
+make data-version
+
+# Run DVC pipeline
+dvc repro
+```
+
+## 🚀 Deployment
+
+### Branch Strategy
+
+- **`master`/`main`**: Desarrollo (sin deploy automático)
+- **`web`**: Producción (deploy automático a EC2)
+
+### Deploy to Production
+
+```bash
+# When ready to deploy
+git checkout web
+git merge master
+git push origin web
+```
+
+El workflow de GitHub Actions se ejecutará automáticamente y desplegará en EC2.
+
+Ver más detalles en: [.github/BRANCH_STRATEGY.md](.github/BRANCH_STRATEGY.md)
+
+## Project Structure Based on Cookiecutter Data Science
+
+This project follows the standardized structure recommended by [Cookiecutter Data Science](https://drivendata.github.io/cookiecutter-data-science/), which provides:
+
+- **Standardized organization**: Consistent project structure across different ML projects
+- **Separation of concerns**: Clear separation between data, code, models, and documentation
+- **Reproducibility**: Structured approach to version control and experiment tracking
+- **Scalability**: Easy to extend and maintain as the project grows
+
+Key principles implemented:
+- Raw data is immutable and versioned with DVC
+- Processed data is derived from raw data through documented pipelines
+- Code is organized into logical modules
+- Models are versioned and tracked with MLflow
+- Experiments are reproducible through DVC pipelines
 
 --------
 

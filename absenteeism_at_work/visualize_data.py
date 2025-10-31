@@ -1,6 +1,6 @@
 # absenteeism_at_work/main1.py
 
-from plots import AbsenteeismVisualizer
+from .plots import AbsenteeismVisualizer
 
 def main():
     print("📊 Starting absenteeism data visualizations...")

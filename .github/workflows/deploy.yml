@@ -1,0 +1,152 @@
+name: Deploy to AWS EC2
+
+# ⚠️ ADVERTENCIA: Este workflow contiene credenciales hardcodeadas
+# IMPORTANTE: Cambiar a GitHub Secrets cuando tengas permisos
+# Las credenciales están expuestas en el código fuente
+
+# Deployment solo ocurre cuando se hace push a la rama 'web'
+# master/main = desarrollo (sin deploy automático)
+# web = producción (con deploy automático)
+
+on:
+  push:
+    branches:
+      - web
+  workflow_dispatch:  # Allows manual trigger from any branch
+
+env:
+  AWS_REGION: us-east-1
+  EC2_INSTANCE_TYPE: t3.micro
+  DOCKER_IMAGE_NAME: absenteeism-api
+  # ⚠️ TEMPORAL: Hardcoded values - Cambiar a secrets
+  AWS_ACCOUNT_ID: "838032879301"
+  EC2_USER: "ubuntu"
+
+jobs:
+  deploy:
+    name: Build, Train, and Deploy
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-api.txt || pip install fastapi uvicorn pydantic
+          pip install boto3 awscli
+
+      - name: Preprocess data
+        run: |
+          python -m absenteeism_at_work.preprocess_data
+
+      - name: Train model
+        run: |
+          python -m absenteeism_at_work.modeling.train
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # ⚠️ TEMPORAL: Hardcoded credentials - Cambiar a secrets cuando tengas permisos
+          aws-access-key-id: AKIA4GHVG53CSODA5KXA
+          aws-secret-access-key: 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
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.6.0"
+
+      - name: Setup infrastructure (Terraform)
+        working-directory: infrastructure/terraform
+        env:
+          AWS_ACCESS_KEY_ID: AKIA4GHVG53CSODA5KXA
+          AWS_SECRET_ACCESS_KEY: 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
+        run: |
+          terraform init
+          terraform plan -out=tfplan
+          terraform apply -auto-approve || echo "Infrastructure may already exist, continuing..."
+        continue-on-error: true
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.DOCKER_IMAGE_NAME }}:latest .
+          docker tag ${{ env.DOCKER_IMAGE_NAME }}:latest ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        continue-on-error: true
+
+      - name: Create ECR repository (if not exists)
+        continue-on-error: true
+        run: |
+          aws ecr create-repository --repository-name ${{ env.DOCKER_IMAGE_NAME }} --region ${{ env.AWS_REGION }} || true
+
+      - name: Push Docker image to ECR
+        if: steps.login-ecr.outcome == 'success'
+        continue-on-error: true
+        run: |
+          # ⚠️ TEMPORAL: Hardcoded account ID - Cambiar a secret cuando tengas permisos
+          docker tag ${{ env.DOCKER_IMAGE_NAME }}:latest ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.DOCKER_IMAGE_NAME }}:latest
+          docker push ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.DOCKER_IMAGE_NAME }}:latest
+
+      - name: Get EC2 instance IP
+        id: get-ec2-ip
+        run: |
+          INSTANCE_IP=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=absenteeism-api" "Name=instance-state-name,Values=running" \
+            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+            --output text \
+            --region ${{ env.AWS_REGION }})
+          echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
+          echo "EC2 IP: $INSTANCE_IP"
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          # ⚠️ TEMPORAL: Usando archivo del repo - Cambiar a secret cuando tengas permisos
+          if [ -f "absenteeism-key.pem" ]; then
+            cat absenteeism-key.pem > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            echo "✅ SSH key loaded from repository"
+          else
+            echo "❌ absenteeism-key.pem not found in repository"
+            echo "⚠️  Make sure to commit absenteeism-key.pem to the repository"
+            exit 1
+          fi
+          ssh-keyscan -H ${{ steps.get-ec2-ip.outputs.instance_ip }} >> ~/.ssh/known_hosts || true
+
+      - name: Copy files to EC2
+        run: |
+          # ⚠️ TEMPORAL: Hardcoded user - Cambiar a secret cuando tengas permisos
+          scp -o StrictHostKeyChecking=no -r \
+            . ${{ env.EC2_USER }}@${{ steps.get-ec2-ip.outputs.instance_ip }}:~/absenteeism_at_work/
+
+      - name: Deploy on EC2
+        run: |
+          # ⚠️ TEMPORAL: Hardcoded user - Cambiar a secret cuando tengas permisos
+          ssh -o StrictHostKeyChecking=no ${{ env.EC2_USER }}@${{ steps.get-ec2-ip.outputs.instance_ip }} << 'EOF'
+            cd ~/absenteeism_at_work
+            chmod +x scripts/deploy.sh
+            ./scripts/deploy.sh
+          EOF
+
+      - name: Health check
+        run: |
+          sleep 30
+          INSTANCE_IP="${{ steps.get-ec2-ip.outputs.instance_ip }}"
+          curl -f http://$INSTANCE_IP:8000/health || exit 1
+
+      - name: Deployment summary
+        run: |
+          echo "✅ Deployment completed successfully!"
+          echo "🌐 API URL: http://${{ steps.get-ec2-ip.outputs.instance_ip }}:8000"
+          echo "📚 Docs: http://${{ steps.get-ec2-ip.outputs.instance_ip }}:8000/docs"

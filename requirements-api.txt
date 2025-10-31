@@ -1,0 +1,21 @@
+# FastAPI and server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+python-multipart>=0.0.6
+
+# Data processing (inherited from requirements.txt)
+numpy>=1.21.0
+pandas>=1.3.0
+scikit-learn>=1.0.0
+
+# Model persistence
+joblib>=1.3.0
+
+# Optional ML libraries (uncomment if using advanced models)
+# lightgbm>=3.3.0
+# catboost>=1.0.0
+
+# MLflow (optional, for experiment tracking)
+mlflow>=2.0.0
+

@@ -1,6 +1,6 @@
 # absenteeism_at_work/preprocess_data.py
 
-from dataset import AbsenteeismCleaner
+from .dataset import AbsenteeismCleaner
 
 def main():
     print("🛠️ Starting data preprocessing...")

@@ -1,0 +1,123 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools-scm>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "absenteeism-at-work"
+version = "0.1.0"
+description = "ML model to predict employee absenteeism hours"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "MLOps Team", email = "team@example.com"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+keywords = ["machine-learning", "mlops", "absenteeism", "regression", "scikit-learn"]
+dependencies = [
+    "numpy>=1.21.0",
+    "pandas>=1.3.0",
+    "scipy>=1.7.0",
+    "scikit-learn>=1.0.0",
+    "matplotlib>=3.4.0",
+    "seaborn>=0.11.0",
+    "mlflow>=1.0.0",
+    "dvc>=2.0.0",
+    "pytest>=7.0.0",
+    "fastapi>=0.68.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=3.0.0",
+    "black>=22.0.0",
+    "flake8>=4.0.0",
+    "mypy>=0.950",
+]
+ml = [
+    "lightgbm>=3.3.0",
+    "catboost>=1.0.0",
+]
+quality = [
+    "evidently>=0.4.0",
+    "deepchecks>=0.8.0",
+    "sdv>=1.0.0",
+]
+
+[project.scripts]
+preprocess = "absenteeism_at_work.preprocess_data:main"
+visualize = "absenteeism_at_work.visualize_data:main"
+train = "absenteeism_at_work.modeling.train:main"
+predict = "absenteeism_at_work.modeling.predict:main"
+
+[tool.setuptools]
+packages = ["absenteeism_at_work"]
+
+[tool.setuptools.package-data]
+"absenteeism_at_work" = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=absenteeism_at_work --cov-report=html --cov-report=term"
+
+[tool.black]
+line-length = 88
+target-version = ['py38', 'py39', 'py310']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["absenteeism_at_work"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+

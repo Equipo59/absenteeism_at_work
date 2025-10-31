@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absenteeism Prediction - API</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏥 Absenteeism Prediction API</h1>
+            <p class="subtitle">Predict employee absenteeism hours</p>
+        </header>
+
+        <!-- Health Status -->
+        <section class="health-section">
+            <div id="health-status" class="health-card">
+                <div class="health-indicator">
+                    <span class="status-dot" id="status-dot"></span>
+                    <span id="status-text">Checking...</span>
+                </div>
+                <div id="health-details" class="health-details"></div>
+            </div>
+        </section>
+
+        <!-- Prediction Form -->
+        <section class="form-section">
+            <div class="form-card">
+                <h2>📊 Make a Prediction</h2>
+                <form id="prediction-form">
+                    <div class="form-grid">
+                        <!-- Reason for Absence -->
+                        <div class="form-group">
+                            <label for="reason_for_absence">Reason for Absence *</label>
+                            <select id="reason_for_absence" name="reason_for_absence" required>
+                                <option value="">Select...</option>
+                                <option value="0">Unknown</option>
+                                <option value="1">Infectious and parasitic diseases</option>
+                                <option value="2">Neoplasms</option>
+                                <option value="3">Blood and immune disorders</option>
+                                <option value="4">Endocrine disorders</option>
+                                <option value="5">Mental disorders</option>
+                                <option value="9">Circulatory system diseases</option>
+                                <option value="10">Respiratory system diseases</option>
+                                <option value="23">Medical consultation</option>
+                                <option value="26">Unjustified absence</option>
+                                <option value="28">Dental consultation</option>
+                            </select>
+                        </div>
+
+                        <!-- Month of Absence -->
+                        <div class="form-group">
+                            <label for="month_of_absence">Month of Absence *</label>
+                            <select id="month_of_absence" name="month_of_absence" required>
+                                <option value="">Select...</option>
+                                <option value="0">Unknown</option>
+                                <option value="1">January</option>
+                                <option value="2">February</option>
+                                <option value="3">March</option>
+                                <option value="4">April</option>
+                                <option value="5">May</option>
+                                <option value="6">June</option>
+                                <option value="7">July</option>
+                                <option value="8">August</option>
+                                <option value="9">September</option>
+                                <option value="10">October</option>
+                                <option value="11">November</option>
+                                <option value="12">December</option>
+                            </select>
+                        </div>
+
+                        <!-- Day of the Week -->
+                        <div class="form-group">
+                            <label for="day_of_the_week">Day of the Week *</label>
+                            <select id="day_of_the_week" name="day_of_the_week" required>
+                                <option value="">Select...</option>
+                                <option value="2">Monday</option>
+                                <option value="3">Tuesday</option>
+                                <option value="4">Wednesday</option>
+                                <option value="5">Thursday</option>
+                                <option value="6">Friday</option>
+                            </select>
+                        </div>
+
+                        <!-- Seasons -->
+                        <div class="form-group">
+                            <label for="seasons">Season *</label>
+                            <select id="seasons" name="seasons" required>
+                                <option value="">Select...</option>
+                                <option value="1">Winter</option>
+                                <option value="2">Spring</option>
+                                <option value="3">Summer</option>
+                                <option value="4">Fall</option>
+                            </select>
+                        </div>
+
+                        <!-- Transportation Expense -->
+                        <div class="form-group">
+                            <label for="transportation_expense">Transportation Expense *</label>
+                            <input type="number" id="transportation_expense" name="transportation_expense" min="0" step="1" required>
+                        </div>
+
+                        <!-- Distance from Residence to Work -->
+                        <div class="form-group">
+                            <label for="distance_from_residence_to_work">Distance from Residence to Work (km) *</label>
+                            <input type="number" id="distance_from_residence_to_work" name="distance_from_residence_to_work" min="0" step="1" required>
+                        </div>
+
+                        <!-- Service Time -->
+                        <div class="form-group">
+                            <label for="service_time">Service Time (years) *</label>
+                            <input type="number" id="service_time" name="service_time" min="0" step="0.1" required>
+                        </div>
+
+                        <!-- Age -->
+                        <div class="form-group">
+                            <label for="age">Age *</label>
+                            <input type="number" id="age" name="age" min="0" max="100" step="1" required>
+                        </div>
+
+                        <!-- Work Load Average per Day -->
+                        <div class="form-group">
+                            <label for="work_load_average_per_day">Work Load Average/day *</label>
+                            <input type="number" id="work_load_average_per_day" name="work_load_average_per_day" min="0" step="1" required>
+                        </div>
+
+                        <!-- Hit Target -->
+                        <div class="form-group">
+                            <label for="hit_target">Hit Target (%) *</label>
+                            <input type="number" id="hit_target" name="hit_target" min="0" max="100" step="1" required>
+                        </div>
+
+                        <!-- Disciplinary Failure -->
+                        <div class="form-group">
+                            <label for="disciplinary_failure">Disciplinary Failure *</label>
+                            <select id="disciplinary_failure" name="disciplinary_failure" required>
+                                <option value="">Select...</option>
+                                <option value="0">No</option>
+                                <option value="1">Yes</option>
+                            </select>
+                        </div>
+
+                        <!-- Education -->
+                        <div class="form-group">
+                            <label for="education">Education Level *</label>
+                            <select id="education" name="education" required>
+                                <option value="">Select...</option>
+                                <option value="1">High School</option>
+                                <option value="2">Graduate</option>
+                                <option value="3">Postgraduate</option>
+                                <option value="4">Master and Doctor</option>
+                            </select>
+                        </div>
+
+                        <!-- Son -->
+                        <div class="form-group">
+                            <label for="son">Number of Sons *</label>
+                            <input type="number" id="son" name="son" min="0" step="1" required>
+                        </div>
+
+                        <!-- Social Drinker -->
+                        <div class="form-group">
+                            <label for="social_drinker">Social Drinker *</label>
+                            <select id="social_drinker" name="social_drinker" required>
+                                <option value="">Select...</option>
+                                <option value="0">No</option>
+                                <option value="1">Yes</option>
+                            </select>
+                        </div>
+
+                        <!-- Social Smoker -->
+                        <div class="form-group">
+                            <label for="social_smoker">Social Smoker *</label>
+                            <select id="social_smoker" name="social_smoker" required>
+                                <option value="">Select...</option>
+                                <option value="0">No</option>
+                                <option value="1">Yes</option>
+                            </select>
+                        </div>
+
+                        <!-- Pet -->
+                        <div class="form-group">
+                            <label for="pet">Number of Pets *</label>
+                            <input type="number" id="pet" name="pet" min="0" step="1" required>
+                        </div>
+
+                        <!-- Weight -->
+                        <div class="form-group">
+                            <label for="weight">Weight (kg) *</label>
+                            <input type="number" id="weight" name="weight" min="0" step="0.1" required>
+                        </div>
+
+                        <!-- Height -->
+                        <div class="form-group">
+                            <label for="height">Height (cm) *</label>
+                            <input type="number" id="height" name="height" min="0" step="1" required>
+                        </div>
+
+                        <!-- Body Mass Index -->
+                        <div class="form-group">
+                            <label for="body_mass_index">Body Mass Index *</label>
+                            <input type="number" id="body_mass_index" name="body_mass_index" min="0" step="0.1" required>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" id="fill-example" class="btn btn-secondary">Fill Example</button>
+                        <button type="submit" id="submit-btn" class="btn btn-primary">Predict Absenteeism</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- Results -->
+        <section class="results-section" id="results-section" style="display: none;">
+            <div class="results-card">
+                <h2>📈 Prediction Result</h2>
+                <div id="prediction-result"></div>
+            </div>
+        </section>
+
+        <!-- Error -->
+        <section class="error-section" id="error-section" style="display: none;">
+            <div class="error-card">
+                <h2>❌ Error</h2>
+                <div id="error-message"></div>
+            </div>
+        </section>
+    </div>
+
+    <footer>
+        <p>Absenteeism Prediction API v1.0</p>
+        <p><a href="/docs" target="_blank">API Documentation</a> | <a href="/health" target="_blank">Health Check</a></p>
+    </footer>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
+

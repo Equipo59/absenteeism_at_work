@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: absenteeism-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount models directory if you have pre-trained models
+      - ./models:/app/models:ro
+      # Mount data if needed
+      - ./data:/app/data:ro
+      # Persist MLflow runs
+      - ./mlruns:/app/mlruns
+      # Mount static files for frontend (optional, for development)
+      - ./absenteeism_at_work/static:/app/absenteeism_at_work/static:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
