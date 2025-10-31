@@ -33,11 +33,9 @@ Anticipate absenteeism trends to improve operational planning, reduce costs, and
 │   ├── external
 │   ├── interim
 │   ├── processed
-│   │   ├── work_absenteeism_processed.csv
-│   │   └── work_absenteeism_processed.csv.dvc
+│   │   └── work_absenteeism_processed.csv
 │   └── raw
-│       ├── work_absenteeism_raw.csv
-│       └── work_absenteeism_raw.csv.dvc
+│       └── work_absenteeism_raw.csv
 ├── docs
 │   ├── Phase1.pdf
 │   └── Phase2.pdf
