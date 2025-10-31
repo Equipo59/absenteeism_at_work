@@ -1,0 +1,14 @@
+artifact_uri: file:C:/Users/jacev/absenteeism_at_work/mlruns/118954917199812154/dc2cdae0d80049cab536dd850e7310fb/artifacts
+end_time: 1761795922818
+entry_point_name: ''
+experiment_id: '118954917199812154'
+lifecycle_stage: active
+run_id: dc2cdae0d80049cab536dd850e7310fb
+run_name: smoke-test
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761795922713
+status: 3
+tags: []
+user_id: jacev

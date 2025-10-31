@@ -1,0 +1,50 @@
+{
+  "dataframe_split": {
+    "columns": [
+      "Reason for absence",
+      "Month of absence",
+      "Day of the week",
+      "Seasons",
+      "Transportation expense",
+      "Distance from Residence to Work",
+      "Service time",
+      "Age",
+      "Work load Average/day",
+      "Hit target",
+      "Disciplinary failure",
+      "Education",
+      "Son",
+      "Social drinker",
+      "Social smoker",
+      "Pet",
+      "Weight",
+      "Height",
+      "Body mass index",
+      "mixed_type_col"
+    ],
+    "data": [
+      [
+        1.0,
+        2.0,
+        4.0,
+        2.0,
+        248.0,
+        25.0,
+        14.0,
+        47.0,
+        264.249,
+        97.0,
+        0.0,
+        1.0,
+        2.0,
+        0.0,
+        0.0,
+        1.0,
+        86.0,
+        165.0,
+        32.0,
+        361.0
+      ]
+    ]
+  }
+}

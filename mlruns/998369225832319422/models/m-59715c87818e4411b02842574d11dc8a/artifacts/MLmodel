@@ -1,0 +1,48 @@
+artifact_path: file:C:/Users/jacev/absenteeism_at_work/mlruns/998369225832319422/models/m-59715c87818e4411b02842574d11dc8a/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.13.7
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.7.2
+is_signature_from_type_hint: false
+mlflow_version: 3.5.1
+model_id: m-59715c87818e4411b02842574d11dc8a
+model_size_bytes: 4453406
+model_uuid: m-59715c87818e4411b02842574d11dc8a
+prompts: null
+run_id: 7c83e04cb2784e0591d75e1aab6788cb
+saved_input_example_info:
+  artifact_path: input_example.json
+  pandas_orient: split
+  serving_input_path: serving_input_example.json
+  type: dataframe
+signature:
+  inputs: '[{"type": "double", "name": "Reason for absence", "required": true}, {"type":
+    "double", "name": "Month of absence", "required": true}, {"type": "double", "name":
+    "Day of the week", "required": true}, {"type": "double", "name": "Seasons", "required":
+    true}, {"type": "double", "name": "Transportation expense", "required": true},
+    {"type": "double", "name": "Distance from Residence to Work", "required": true},
+    {"type": "double", "name": "Service time", "required": true}, {"type": "double",
+    "name": "Age", "required": true}, {"type": "double", "name": "Work load Average/day",
+    "required": true}, {"type": "double", "name": "Hit target", "required": true},
+    {"type": "double", "name": "Disciplinary failure", "required": true}, {"type":
+    "double", "name": "Education", "required": true}, {"type": "double", "name": "Son",
+    "required": true}, {"type": "double", "name": "Social drinker", "required": true},
+    {"type": "double", "name": "Social smoker", "required": true}, {"type": "double",
+    "name": "Pet", "required": true}, {"type": "double", "name": "Weight", "required":
+    true}, {"type": "double", "name": "Height", "required": true}, {"type": "double",
+    "name": "Body mass index", "required": true}, {"type": "double", "name": "mixed_type_col",
+    "required": true}]'
+  outputs: '[{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1]}}]'
+  params: null
+type_hint_from_example: false
+utc_time_created: '2025-10-31 18:16:41.890562'
