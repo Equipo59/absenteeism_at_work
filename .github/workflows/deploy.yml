@@ -4,12 +4,11 @@ name: Deploy to AWS EC2
 # master/main = desarrollo (sin deploy automático)
 # web = producción (con deploy automático)
 #
+# Usa AWS Systems Manager (SSM) para deployment sin necesidad de SSH keys
 # Requiere configurar GitHub Secrets:
 # - AWS_ACCESS_KEY_ID
 # - AWS_SECRET_ACCESS_KEY
 # - AWS_ACCOUNT_ID
-# - EC2_SSH_KEY
-# - EC2_USER
 
 on:
   push:
@@ -68,32 +67,13 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          TF_VAR_ec2_key_name: "absenteeism-key"
           TF_VAR_aws_region: ${{ env.AWS_REGION }}
           TF_VAR_ec2_instance_type: ${{ env.EC2_INSTANCE_TYPE }}
+          TF_VAR_use_existing_vpc: "true"
         run: |
-          terraform init
-          # Check if instance exists and has correct key pair
-          if terraform state list 2>/dev/null | grep -q "aws_instance.api"; then
-            INSTANCE_ID=$(terraform state show aws_instance.api 2>/dev/null | grep '^id[[:space:]]*=' | sed 's/.*"\(.*\)".*/\1/' || echo "")
-            if [ -n "$INSTANCE_ID" ] && [ "$INSTANCE_ID" != "null" ]; then
-              CURRENT_KEY=$(aws ec2 describe-instances \
-                --instance-ids "$INSTANCE_ID" \
-                --region ${{ env.AWS_REGION }} \
-                --query 'Reservations[0].Instances[0].KeyName' \
-                --output text 2>/dev/null || echo "None")
-              if [ "$CURRENT_KEY" != "absenteeism-key" ] && [ "$CURRENT_KEY" != "None" ] && [ "$CURRENT_KEY" != "null" ]; then
-                echo "⚠️  Instance has wrong key pair ($CURRENT_KEY), will recreate..."
-                terraform taint aws_instance.api || true
-              elif [ "$CURRENT_KEY" == "None" ] || [ -z "$CURRENT_KEY" ]; then
-                echo "⚠️  Instance has no key pair, will recreate..."
-                terraform taint aws_instance.api || true
-              fi
-            fi
-          fi
-          terraform plan -out=tfplan -var="ec2_key_name=absenteeism-key" -var="aws_region=${{ env.AWS_REGION }}" -var="ec2_instance_type=${{ env.EC2_INSTANCE_TYPE }}"
-          terraform apply -auto-approve -var="ec2_key_name=absenteeism-key" -var="aws_region=${{ env.AWS_REGION }}" -var="ec2_instance_type=${{ env.EC2_INSTANCE_TYPE }}" || echo "Infrastructure may already exist, continuing..."
-        continue-on-error: true
+          terraform init -upgrade
+          terraform plan -out=tfplan
+          terraform apply -auto-approve
 
       - name: Clean up Docker system
         run: |
@@ -137,71 +117,138 @@ jobs:
         run: |
           docker system prune -af || true
 
-      - name: Get EC2 instance IP
-        id: get-ec2-ip
+      - name: Get EC2 instance info
+        id: get-ec2-info
+        working-directory: infrastructure/terraform
         run: |
-          INSTANCE_IP=$(aws ec2 describe-instances \
+          INSTANCE_IP=$(terraform output -raw instance_ip 2>/dev/null || aws ec2 describe-instances \
             --filters "Name=tag:Name,Values=absenteeism-api" "Name=instance-state-name,Values=running" \
             --query 'Reservations[0].Instances[0].PublicIpAddress' \
             --output text \
             --region ${{ env.AWS_REGION }})
+          
+          INSTANCE_ID=$(terraform output -raw instance_id 2>/dev/null || aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=absenteeism-api" "Name=instance-state-name,Values=running" \
+            --query 'Reservations[0].Instances[0].InstanceId' \
+            --output text \
+            --region ${{ env.AWS_REGION }})
+          
           echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
           echo "EC2 IP: $INSTANCE_IP"
+          echo "EC2 Instance ID: $INSTANCE_ID"
+          
+          # Wait for SSM agent to be ready
+          echo "Waiting for SSM agent to register..."
+          sleep 30
 
-      - name: Setup SSH key
+      - name: Create S3 bucket for deployment
+        id: create-bucket
         run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          # Write SSH key - preserve newlines from GitHub Secrets
-          # Use printf to handle newlines properly
-          printf '%s\n' "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          # Verify SSH key format
-          if [ ! -s ~/.ssh/id_rsa ]; then
-            echo "❌ SSH key file is empty"
-            exit 1
-          fi
-          if ! head -1 ~/.ssh/id_rsa | grep -qE "(BEGIN|PRIVATE)"; then
-            echo "❌ SSH key format invalid"
-            echo "First line: $(head -1 ~/.ssh/id_rsa)"
-            echo "Key length: $(wc -l < ~/.ssh/id_rsa) lines"
-            exit 1
-          fi
-          # Add EC2 to known_hosts
-          ssh-keyscan -H ${{ steps.get-ec2-ip.outputs.instance_ip }} >> ~/.ssh/known_hosts 2>/dev/null || true
-          # Test SSH connection with verbose output for debugging
-          echo "Testing SSH connection..."
-          ssh -v -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ steps.get-ec2-ip.outputs.instance_ip }} "echo 'SSH connection test successful'" || {
-            echo "⚠️ SSH test failed"
-            echo "Troubleshooting:"
-            echo "  - Key file size: $(wc -c < ~/.ssh/id_rsa) bytes"
-            echo "  - Key first line: $(head -1 ~/.ssh/id_rsa)"
-            echo "  - Key last line: $(tail -1 ~/.ssh/id_rsa)"
-            exit 1
-          }
+          BUCKET_NAME="absenteeism-deployment-${{ github.run_number }}"
+          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
+          
+          # Create bucket or use existing
+          aws s3api create-bucket \
+            --bucket $BUCKET_NAME \
+            --region ${{ env.AWS_REGION }} \
+            || echo "Bucket may already exist"
+          
+          # Tag with lifecycle policy
+          aws s3api put-bucket-tagging \
+            --bucket $BUCKET_NAME \
+            --tagging "TagSet=[{Key=Project,Value=absenteeism},{Key=AutoDelete,Value=true}]"
 
-      - name: Copy files to EC2
+      - name: Package and upload files to S3
         run: |
-          scp -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i ~/.ssh/id_rsa -r \
-            . ${{ secrets.EC2_USER }}@${{ steps.get-ec2-ip.outputs.instance_ip }}:~/absenteeism_at_work/
+          echo "Packaging application..."
+          tar -czf deploy.tar.gz \
+            --exclude='.git' \
+            --exclude='venv' \
+            --exclude='__pycache__' \
+            --exclude='*.pyc' \
+            --exclude='mlruns' \
+            --exclude='.pytest_cache' \
+            --exclude='.mypy_cache' \
+            --exclude='node_modules' \
+            --exclude='.terraform' \
+            --exclude='tfplan*' \
+            .
+          
+          echo "Uploading to S3..."
+          aws s3 cp deploy.tar.gz s3://${{ steps.create-bucket.outputs.bucket_name }}/deploy.tar.gz
 
-      - name: Deploy on EC2
+      - name: Deploy on EC2 via SSM
         run: |
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ steps.get-ec2-ip.outputs.instance_ip }} << 'EOF'
-            cd ~/absenteeism_at_work
-            chmod +x scripts/deploy.sh
-            export DEPLOYMENT_MODE=local
-            ./scripts/deploy.sh
-          EOF
+          echo "Deploying application on EC2 via AWS Systems Manager..."
+          
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ steps.get-ec2-info.outputs.instance_id }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "commands=[
+              'cd /home/ubuntu',
+              'mkdir -p absenteeism_at_work',
+              'cd absenteeism_at_work',
+              'aws s3 cp s3://${{ steps.create-bucket.outputs.bucket_name }}/deploy.tar.gz .',
+              'tar -xzf deploy.tar.gz || true',
+              'chmod +x scripts/deploy.sh',
+              'export DEPLOYMENT_MODE=ci',
+              './scripts/deploy.sh'
+            ]" \
+            --timeout-seconds 600 \
+            --region ${{ env.AWS_REGION }} \
+            --query 'Command.CommandId' \
+            --output text)
+          
+          echo "Command ID: $COMMAND_ID"
+          echo "Waiting for deployment to complete..."
+          
+          # Poll for command completion
+          for i in {1..30}; do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "${{ steps.get-ec2-info.outputs.instance_id }}" \
+              --region ${{ env.AWS_REGION }} \
+              --query 'Status' \
+              --output text || echo "Unknown")
+            
+            echo "Attempt $i/30: Status = $STATUS"
+            
+            if [ "$STATUS" == "Success" ]; then
+              echo "✅ Deployment successful!"
+              # Show output
+              aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "${{ steps.get-ec2-info.outputs.instance_id }}" \
+                --region ${{ env.AWS_REGION }}
+              break
+            elif [ "$STATUS" == "Failed" ]; then
+              echo "❌ Deployment failed!"
+              aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "${{ steps.get-ec2-info.outputs.instance_id }}" \
+                --region ${{ env.AWS_REGION }}
+              exit 1
+            fi
+            
+            sleep 10
+          done
+
+      - name: Clean up S3 bucket
+        if: always()
+        run: |
+          echo "Cleaning up S3 deployment bucket..."
+          aws s3 rm s3://${{ steps.create-bucket.outputs.bucket_name }}/deploy.tar.gz || true
+          aws s3api delete-bucket --bucket ${{ steps.create-bucket.outputs.bucket_name }} || true
 
       - name: Health check
         run: |
           sleep 30
-          INSTANCE_IP="${{ steps.get-ec2-ip.outputs.instance_ip }}"
+          INSTANCE_IP="${{ steps.get-ec2-info.outputs.instance_ip }}"
           curl -f http://$INSTANCE_IP:8000/health || exit 1
 
       - name: Deployment summary
         run: |
           echo "✅ Deployment completed successfully!"
-          echo "🌐 API URL: http://${{ steps.get-ec2-ip.outputs.instance_ip }}:8000"
-          echo "📚 Docs: http://${{ steps.get-ec2-ip.outputs.instance_ip }}:8000/docs"
+          echo "🌐 API URL: http://${{ steps.get-ec2-info.outputs.instance_ip }}:8000"
+          echo "📚 Docs: http://${{ steps.get-ec2-info.outputs.instance_ip }}:8000/docs"

@@ -1,4 +1,4 @@
-# absenteeism_at_work/main1.py
+# absenteeism_at_work/visualize_data.py
 
 from .plots import AbsenteeismVisualizer
 

@@ -22,3 +22,9 @@ variable "ec2_key_name" {
   default     = ""
 }
 
+variable "use_existing_vpc" {
+  description = "Try to use existing VPC instead of creating a new one. If no VPC is found, will create one automatically."
+  type        = bool
+  default     = true
+}
+

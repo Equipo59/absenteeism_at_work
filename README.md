@@ -142,7 +142,15 @@ git push origin web
 
 El workflow de GitHub Actions se ejecutará automáticamente y desplegará en EC2.
 
-Ver más detalles en: [.github/BRANCH_STRATEGY.md](.github/BRANCH_STRATEGY.md)
+### Troubleshooting
+
+Si encuentras problemas durante el despliegue, consulta la guía de troubleshooting:
+**[.github/DEPLOYMENT_TROUBLESHOOTING.md](.github/DEPLOYMENT_TROUBLESHOOTING.md)**
+
+Problemas comunes:
+- Error de autenticación SSH → Verifica que la clave privada en GitHub Secrets coincida con la clave pública en EC2
+- Problemas con Docker → Revisa los logs con `sudo docker-compose logs`
+- API no responde → Verifica el health check en `/health`
 
 ## Project Structure Based on Cookiecutter Data Science
 
