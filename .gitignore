@@ -65,11 +65,9 @@ logs/
 .env.local
 
 # AWS Keys (IMPORTANT!)
-# ⚠️ TEMPORAL: Comentado para permitir absenteeism-key.pem en el repo
-# *.pem
+*.pem
 *.key
 aws-credentials.txt
-# absenteeism-key.pem  # ⚠️ TEMPORAL: Remover esto cuando uses secrets
 
 # Terraform
 *.tfstate
