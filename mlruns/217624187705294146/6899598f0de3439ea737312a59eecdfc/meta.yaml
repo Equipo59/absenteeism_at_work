@@ -1,0 +1,14 @@
+artifact_uri: file:C:/Users/jacev/absenteeism_at_work/mlruns/217624187705294146/6899598f0de3439ea737312a59eecdfc/artifacts
+end_time: 1761936139315
+entry_point_name: ''
+experiment_id: '217624187705294146'
+lifecycle_stage: active
+run_id: 6899598f0de3439ea737312a59eecdfc
+run_name: linear_run
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761936128844
+status: 3
+tags: []
+user_id: jacev
