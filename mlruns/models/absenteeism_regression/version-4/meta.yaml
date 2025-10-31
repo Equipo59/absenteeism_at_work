@@ -1,0 +1,15 @@
+creation_timestamp: 1761936139146
+current_stage: None
+deployment_job_state: null
+description: null
+last_updated_timestamp: 1761936139146
+model_id: m-92638f418df3404bb6f049dae4f5dc61
+name: absenteeism_regression
+run_id: 6899598f0de3439ea737312a59eecdfc
+run_link: null
+source: models:/m-92638f418df3404bb6f049dae4f5dc61
+status: READY
+status_message: null
+storage_location: file:C:/Users/jacev/absenteeism_at_work/mlruns/217624187705294146/models/m-92638f418df3404bb6f049dae4f5dc61/artifacts
+user_id: null
+version: 4

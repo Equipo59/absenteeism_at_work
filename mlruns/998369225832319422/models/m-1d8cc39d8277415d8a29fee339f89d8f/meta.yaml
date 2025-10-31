@@ -1,0 +1,10 @@
+artifact_location: file:C:/Users/jacev/absenteeism_at_work/mlruns/998369225832319422/models/m-1d8cc39d8277415d8a29fee339f89d8f/artifacts
+creation_timestamp: 1761936264709
+experiment_id: '998369225832319422'
+last_updated_timestamp: 1761936274029
+model_id: m-1d8cc39d8277415d8a29fee339f89d8f
+model_type: null
+name: model
+source_run_id: e4098d047b2343ef98c8921c23000ab7
+status: 2
+status_message: null
