@@ -172,11 +172,14 @@ jobs:
       - name: Package and upload files to S3
         run: |
           echo "Packaging application..."
-          # Use git archive to avoid file change issues
-          git archive --format=tar.gz \
-            --output=deploy.tar.gz \
-            --prefix=./ \
-            HEAD
+          # Use git archive to get versioned files, then add generated files
+          git archive --format=tar --prefix=./ HEAD > deploy.tar
+          
+          # Add generated files to the archive
+          tar --append --file=deploy.tar models/ data/ mlruns/ || echo "Some generated files may not exist"
+          
+          # Compress the archive
+          gzip deploy.tar
           
           echo "Checking if tar file was created..."
           if [ ! -f deploy.tar.gz ]; then

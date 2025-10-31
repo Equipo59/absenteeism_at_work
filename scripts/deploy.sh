@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 
 echo "🚀 Starting deployment process..."
 
@@ -7,67 +6,45 @@ echo "🚀 Starting deployment process..."
 DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-"local"}
 echo "📦 Deployment mode: $DEPLOYMENT_MODE"
 
-# Install Docker if not already installed
+# Ensure Docker is running
+echo "🔧 Checking Docker..."
 if ! command -v docker &> /dev/null; then
-    echo "🔧 Installing Docker..."
-    sudo apt-get update
-    sudo apt-get install -y docker.io docker-compose
-    sudo systemctl start docker
-    sudo systemctl enable docker
-    sudo usermod -aG docker $USER || true
+    echo "❌ Docker not installed"
+    exit 1
 fi
 
-# Ensure user is in docker group
-if ! groups | grep -q docker; then
-    echo "⚠️ Current user not in docker group. You may need to log out and back in."
+if ! systemctl is-active --quiet docker; then
+    echo "🔧 Starting Docker..."
+    sudo systemctl start docker || true
 fi
 
-# Stop existing containers
+# Stop existing containers gracefully
 echo "🛑 Stopping existing containers..."
+cd "$(dirname "$0")/.." || cd ~/absenteeism_at_work
 sudo docker-compose down || true
 sudo docker stop $(sudo docker ps -q --filter ancestor=absenteeism-api:latest) 2>/dev/null || true
 
-# Pull latest code (if in git repo)
-if [ -d .git ]; then
-    echo "📥 Pulling latest code..."
-    git pull origin web || git pull origin main || true
-fi
-
-# Install Python dependencies
-echo "🐍 Installing Python dependencies..."
-if [ -d venv ]; then
-    source venv/bin/activate || true
-else
-    python3 -m venv venv || true
-    source venv/bin/activate || true
-fi
-
-pip install --upgrade pip
-pip install -e .
-
-# Preprocess data if needed
-if [ ! -f "data/processed/work_absenteeism_processed.csv" ]; then
-    echo "🔄 Preprocessing data..."
-    python -m absenteeism_at_work.preprocess_data || true
-fi
-
-# Train model if no best model exists
-if [ ! -f "models/best_model.joblib" ]; then
-    echo "🤖 Training model..."
-    python -m absenteeism_at_work.modeling.train || true
-fi
+# Ensure we're in the right directory
+pwd
+ls -la
 
 # Build Docker image
 echo "🐳 Building Docker image..."
-sudo docker build -t absenteeism-api:latest .
+sudo docker build -t absenteeism-api:latest . || {
+    echo "❌ Docker build failed"
+    exit 1
+}
 
 # Start containers with docker-compose
 echo "🚀 Starting application with docker-compose..."
-sudo docker-compose up -d
+sudo docker-compose up -d || {
+    echo "❌ Failed to start containers"
+    exit 1
+}
 
 # Wait for API to be ready
 echo "⏳ Waiting for API to be ready..."
-sleep 10
+sleep 15
 max_attempts=30
 attempt=0
 while [ $attempt -lt $max_attempts ]; do
