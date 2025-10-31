@@ -174,8 +174,7 @@ setInterval(checkHealth, 30000);
 function getMLflowUrl() {
     const host = window.location.hostname;
     const protocol = window.location.protocol;
-    const port = window.location.port ? `:5000` : '';
-    return `${protocol}//${host}${port.replace(window.location.port, '5000')}`;
+    return `${protocol}//${host}:5001`;
 }
 
 // Update MLflow link dynamically
