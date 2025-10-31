@@ -72,6 +72,8 @@ jobs:
           TF_VAR_use_existing_vpc: "true"
         run: |
           terraform init -upgrade
+          # Try to import IAM role if it already exists
+          terraform import aws_iam_role.ec2_ssm_role absenteeism-ec2-ssm-role || echo "IAM role doesn't exist or already imported"
           terraform plan -out=tfplan
           terraform apply -auto-approve
 
