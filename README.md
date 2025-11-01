@@ -144,7 +144,7 @@ git push origin web
 
 ### What Gets Deployed
 
-**1. Absenteeism API** (deploy.yml)
+**Absenteeism API** (deploy.yml)
 - ✅ **CloudFormation** para infraestructura
 - ✅ **ECR** para imágenes Docker (`absenteeism-api`)
 - ✅ **ECS Cluster**: `production-absenteeism-cluster`
@@ -152,27 +152,14 @@ git push origin web
 - ✅ **Auto-scaling** y health checks
 - ✅ **Logs centralizados** en CloudWatch
 
-**2. MLflow Tracking Server** (deploy-mlflow.yml)
-- ✅ **CloudFormation** para infraestructura
-- ✅ **ECR** para imágenes Docker (`mlflow-tracking`)
-- ✅ **ECS Cluster**: `production-mlflow-cluster`
-- ✅ **Application Load Balancer** para acceder a la UI
-- ✅ **S3** para almacenar artifacts (opcional)
-- ✅ **Health checks** para el servidor de tracking
-
 ### Troubleshooting
 
-**Ver logs de ECS (API):**
+**Ver logs de ECS:**
 ```bash
 aws logs tail /ecs/production-absenteeism-api --follow --region us-east-1
 ```
 
-**Ver logs de ECS (MLflow):**
-```bash
-aws logs tail /ecs/production-mlflow-tracking --follow --region us-east-1
-```
-
-**Verificar estado del servicio (API):**
+**Verificar estado del servicio:**
 ```bash
 aws ecs describe-services \
   --cluster production-absenteeism-cluster \
@@ -180,27 +167,10 @@ aws ecs describe-services \
   --region us-east-1
 ```
 
-**Verificar estado del servicio (MLflow):**
-```bash
-aws ecs describe-services \
-  --cluster production-mlflow-cluster \
-  --services production-mlflow-tracking \
-  --region us-east-1
-```
-
-**Ver outputs de CloudFormation (API):**
+**Ver outputs de CloudFormation:**
 ```bash
 aws cloudformation describe-stacks \
   --stack-name absenteeism-infrastructure \
-  --query 'Stacks[0].Outputs' \
-  --output table \
-  --region us-east-1
-```
-
-**Ver outputs de CloudFormation (MLflow):**
-```bash
-aws cloudformation describe-stacks \
-  --stack-name mlflow-infrastructure \
   --query 'Stacks[0].Outputs' \
   --output table \
   --region us-east-1
