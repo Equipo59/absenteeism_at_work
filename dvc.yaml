@@ -1,0 +1,55 @@
+stages:
+  preprocess:
+    cmd: python -m absenteeism_at_work.preprocess_data
+    deps:
+      - data/raw/work_absenteeism_raw.csv
+      - absenteeism_at_work/features.py
+      - absenteeism_at_work/dataset.py
+      - absenteeism_at_work/config.py
+    outs:
+      - data/processed/work_absenteeism_processed.csv
+    params:
+      - absenteeism_at_work.config.PROCESSED_DATA_PATH
+    metrics:
+      - reports/metrics/preprocessing_metrics.json
+
+  visualize:
+    cmd: python -m absenteeism_at_work.visualize_data
+    deps:
+      - data/processed/work_absenteeism_processed.csv
+      - absenteeism_at_work/plots.py
+      - absenteeism_at_work/visualize_data.py
+    outs:
+      - reports/figures/
+    params:
+      - absenteeism_at_work.config.PROCESSED_DATA_PATH
+
+  train:
+    cmd: python -m absenteeism_at_work.modeling.train
+    deps:
+      - data/processed/work_absenteeism_processed.csv
+      - absenteeism_at_work/modeling/train.py
+      - absenteeism_at_work/features.py
+      - absenteeism_at_work/dataset.py
+    outs:
+      - models/
+      - mlruns/
+    params:
+      - absenteeism_at_work.config.PROCESSED_DATA_PATH
+    metrics:
+      - reports/metrics/training_metrics.json
+
+  evaluate:
+    cmd: python -m absenteeism_at_work.modeling.predict --evaluate
+    deps:
+      - data/processed/work_absenteeism_processed.csv
+      - models/
+      - absenteeism_at_work/modeling/predict.py
+    outs:
+      - reports/metrics/evaluation_metrics.json
+      - reports/figures/predictions/
+    params:
+      - absenteeism_at_work.config.PROCESSED_DATA_PATH
+    metrics:
+      - reports/metrics/evaluation_metrics.json
+

@@ -1,0 +1,52 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: absenteeism-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount models directory if you have pre-trained models
+      - ./models:/app/models:ro
+      # Mount data if needed
+      - ./data:/app/data:ro
+      # Persist MLflow runs (shared with MLflow UI)
+      - ./mlruns:/app/mlruns
+      # Mount static files for frontend (optional, for development)
+      - ./absenteeism_at_work/static:/app/absenteeism_at_work/static:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MLFLOW_TRACKING_URI=file:///app/mlruns
+    restart: unless-stopped
+    depends_on:
+      - mlflow
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    container_name: mlflow-ui
+    ports:
+      - "5001:5000"
+    volumes:
+      # Mount MLflow tracking directory (shared with API)
+      - ./mlruns:/mlflow/mlruns
+      # Mount artifacts if stored separately
+      - ./mlruns:/mlflow/artifacts
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=file:///mlflow/mlruns
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=file:///mlflow/artifacts
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri file:///mlflow/mlruns --default-artifact-root file:///mlflow/artifacts
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+

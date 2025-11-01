@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
-from config import (
+from .config import (
     PROCESSED_DATA_PATH, MONTHS, DAYS, SEASONS,
     EDUCATION, YES_NO
 )

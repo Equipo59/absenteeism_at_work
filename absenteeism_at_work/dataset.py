@@ -2,8 +2,8 @@
 
 import os
 import pandas as pd
-from features import create_preprocessing_pipeline
-from config import RAW_DATA_PATH, PROCESSED_DATA_PATH
+from .features import create_preprocessing_pipeline
+from .config import RAW_DATA_PATH, PROCESSED_DATA_PATH
 
 
 class AbsenteeismCleaner:
